@@ -5,12 +5,13 @@ uniform float uSwapWipe;
 uniform float uReveal;
 uniform float uWhiteMix;
 uniform float uOpacity;
+uniform float uSurfaceWipe;
 uniform float uFlatShade;
 uniform vec3 uInkColor;
 uniform vec2 uBoundsY;
 uniform vec3 uLightDirection;
 
-varying vec2 vUv;
+varying vec2 vSampleUv;
 varying vec3 vWorldNormal;
 varying vec3 vLocalPosition;
 
@@ -22,12 +23,12 @@ void main()
     // Live swap wipe between two painted maps
     float swapEdge = mix(1.12, - 0.12, uSwapWipe);
     float swapMask = smoothstep(swapEdge - 0.07, swapEdge + 0.07, heightRatio);
-    vec3 paintColor = mix(texture2D(uMapPaintA, vUv).rgb, texture2D(uMapPaintB, vUv).rgb, swapMask);
+    vec3 paintColor = mix(texture2D(uMapPaintA, vSampleUv).rgb, texture2D(uMapPaintB, vSampleUv).rgb, swapMask);
 
     // Baked → painted reveal
     float revealEdge = mix(1.12, - 0.12, uReveal);
     float revealMask = smoothstep(revealEdge - 0.07, revealEdge + 0.07, heightRatio);
-    vec3 albedo = mix(texture2D(uMapBase, vUv).rgb, paintColor, revealMask);
+    vec3 albedo = mix(texture2D(uMapBase, vSampleUv).rgb, paintColor, revealMask);
 
     // White clay state
     albedo = mix(albedo, vec3(0.955, 0.945, 0.925), uWhiteMix);
@@ -42,7 +43,12 @@ void main()
     // Flat-ink variant (wireframe overlay) skips shading entirely
     color = mix(color, uInkColor, uFlatShade);
 
+    // Surface presence — the bake act dissolves the skin and wipes it back
+    // top-down with the sweep (uSurfaceWipe 1 = full surface)
+    float surfaceEdge = mix(1.12, - 0.12, uSurfaceWipe);
+    float surfaceMask = smoothstep(surfaceEdge - 0.06, surfaceEdge + 0.06, heightRatio);
+
     // Final color
-    gl_FragColor = vec4(color, uOpacity);
+    gl_FragColor = vec4(color, uOpacity * surfaceMask);
     #include <colorspace_fragment>
 }

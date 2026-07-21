@@ -1,9 +1,11 @@
 uniform float uUnwrap;
 uniform float uUnwrapSize;
+uniform float uUvPack;
 
 attribute vec2 aUnwrapUv;
+attribute float aPackOrder;
 
-varying vec2 vUv;
+varying vec2 vSampleUv;
 varying vec3 vWorldNormal;
 varying vec3 vLocalPosition;
 
@@ -24,8 +26,16 @@ void main()
     // Final position
     gl_Position = projectedPosition;
 
+    // Live palette packing — sample where this island currently SITS on the
+    // sheet, staggered per island exactly like the uvIslands line animation,
+    // so the model's colors resolve island-by-island as the layout packs
+    float packWindow = 0.4;
+    float packOffset = aPackOrder * (1.0 - packWindow);
+    float packProgress = clamp((uUvPack - packOffset) / packWindow, 0.0, 1.0);
+    packProgress = packProgress * packProgress * (3.0 - 2.0 * packProgress);
+
     // Varyings
-    vUv = uv;
+    vSampleUv = mix(aUnwrapUv, uv, packProgress);
     vWorldNormal = normalize(mat3(modelMatrix) * morphedNormal);
     vLocalPosition = position;
 }

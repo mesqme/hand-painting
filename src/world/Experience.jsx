@@ -4,10 +4,8 @@ import { useFrame, useThree } from '@react-three/fiber'
 
 import DuckColumnAssembly from './DuckColumnAssembly.jsx'
 import PalettePlane from './PalettePlane.jsx'
-import RingColumns from './RingColumns.jsx'
-import BakeRig from './BakeRig.jsx'
+import Crew from './Crew.jsx'
 import AtlasCombine from './AtlasCombine.jsx'
-import BatchedZoo from './BatchedZoo.jsx'
 import { pointerParallax, startPointerParallax, updatePointerParallax } from './pointerParallax.js'
 import { perfProbe } from './perfProbe.js'
 
@@ -51,12 +49,10 @@ export default function Experience()
             <directionalLight position={ [ 3, 5, 2.5 ] } intensity={ 0.5 } />
 
             <group ref={ stage }>
+                <Crew />
                 <DuckColumnAssembly />
                 <PalettePlane />
-                <RingColumns />
-                <BakeRig />
                 <AtlasCombine />
-                <BatchedZoo />
             </group>
         </>
     )

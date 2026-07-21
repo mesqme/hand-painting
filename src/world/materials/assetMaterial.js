@@ -25,8 +25,10 @@ export function createAssetMaterial(options = {})
             uReveal: new THREE.Uniform(0),
             uWhiteMix: new THREE.Uniform(options.whiteMix ?? 0),
             uOpacity: new THREE.Uniform(options.opacity ?? 1),
+            uSurfaceWipe: new THREE.Uniform(1),
             uUnwrap: new THREE.Uniform(0),
             uUnwrapSize: new THREE.Uniform(options.unwrapSize ?? WORLD.paletteSize),
+            uUvPack: new THREE.Uniform(options.uvPack ?? 1),
             uFlatShade: new THREE.Uniform(options.flatShade ? 1 : 0),
             uInkColor: new THREE.Uniform(new THREE.Color(options.inkColor ?? COLORS.wire)),
             uBoundsY: new THREE.Uniform(new THREE.Vector2(- WORLD.assemblyHeight * 0.5, WORLD.assemblyHeight * 0.5)),
@@ -54,4 +56,6 @@ export function updateAssetMaterial(material, options)
     if(options.reveal !== undefined) uniforms.uReveal.value = options.reveal
     if(options.unwrap !== undefined) uniforms.uUnwrap.value = options.unwrap
     if(options.swapWipe !== undefined) uniforms.uSwapWipe.value = options.swapWipe
+    if(options.uvPack !== undefined) uniforms.uUvPack.value = options.uvPack
+    if(options.surfaceWipe !== undefined) uniforms.uSurfaceWipe.value = options.surfaceWipe
 }

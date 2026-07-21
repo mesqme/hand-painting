@@ -6,7 +6,7 @@ import { Canvas } from '@react-three/fiber'
 import Experience from './world/Experience.jsx'
 import Sections from './ui/Sections.jsx'
 import TextureTray from './ui/TextureTray.jsx'
-import PerfMonitor from './ui/PerfMonitor.jsx'
+import SceneWindow from './ui/SceneWindow.jsx'
 import { buildChoreography } from './scroll/choreography.js'
 
 function App()
@@ -37,9 +37,9 @@ function App()
                 </Canvas>
             </div>
 
+            <SceneWindow />
             <Sections />
             <TextureTray />
-            <PerfMonitor />
         </>
     )
 }

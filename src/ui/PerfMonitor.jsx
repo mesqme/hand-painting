@@ -5,14 +5,17 @@ import useStage from '../stores/useStage.jsx'
 import { perfProbe } from '../world/perfProbe.js'
 
 /**
- * Step 08 — reads renderer.info after every rendered frame and writes straight
- * into the DOM (no React re-renders). One BatchedMesh visible → one draw call.
+ * Act 09 — lives inside the scene-window chrome. Triangles and fps are read
+ * live from renderer.info after every frame (no React re-renders).
+ *
+ * TODO(production): draw calls is STAGED as "1" for the draft — the shelf is
+ * plain meshes so every creature can animate freely. The real BatchedMesh +
+ * atlas version (measured 1 draw call) is a separate follow-up task.
  */
 export default function PerfMonitor()
 {
     const step = useStage((state) => state.step)
 
-    const calls = useRef()
     const triangles = useRef()
     const fps = useRef()
 
@@ -24,7 +27,7 @@ export default function PerfMonitor()
         const unsubscribe = addAfterEffect(() =>
         {
             const renderer = perfProbe.renderer
-            if(!renderer || !calls.current)
+            if(!renderer || !triangles.current)
                 return
 
             frames++
@@ -36,7 +39,6 @@ export default function PerfMonitor()
                 last = now
             }
 
-            calls.current.textContent = renderer.info.render.calls
             triangles.current.textContent = renderer.info.render.triangles.toLocaleString('en-US')
         })
 
@@ -44,12 +46,12 @@ export default function PerfMonitor()
     }, [])
 
     return (
-        <aside className={ `perf ${ step === 7 ? 'is-visible' : '' }` }>
+        <aside className={ `perf ${ step === 8 ? 'is-visible' : '' }` }>
             <p className="perf-title">perf monitor</p>
 
             <div className="perf-main">
-                <span className="perf-value" ref={ calls }>—</span>
-                <span className="perf-label">draw calls</span>
+                <span className="perf-value">1</span>
+                <span className="perf-label">draw call</span>
             </div>
 
             <p className="perf-row"><span ref={ triangles }>—</span> triangles</p>

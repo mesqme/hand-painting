@@ -71,6 +71,58 @@ body
 }
 
 /**
+ * Scene-preview window (acts 03 + 08) — sits behind the transparent canvas
+ */
+.scene-window
+{
+    position: fixed;
+    z-index: 0;
+    left: 50%;
+    top: 50%;
+    /* width is set per frame by SceneWindow.jsx in world units */
+    width: 76vw;
+    height: 72vh;
+    transform: translate(-50%, -52%);
+    border: 1.5px solid rgba(59, 58, 56, 0.4);
+    border-radius: 10px;
+    background-color: rgba(244, 242, 239, 0.5);
+    /* blueprint grid only — the GROUND lives in 3D (the crew's tilted floor
+       grid), so nothing here draws a parallel fake floor line */
+    background-image:
+        repeating-linear-gradient(to right, rgba(59, 58, 56, 0.07) 0 1px, transparent 1px 46px),
+        repeating-linear-gradient(to bottom, rgba(59, 58, 56, 0.07) 0 1px, transparent 1px 46px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.scene-window-chrome
+{
+    position: absolute;
+    top: -30px;
+    left: 2px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.scene-window-dot
+{
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.scene-window-label
+{
+    margin-left: 8px;
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+
+/**
  * Scroll page + cards
  */
 .page
@@ -98,12 +150,22 @@ body
 .step--right .card
 {
     margin-left: auto;
-    margin-right: 7vw;
+    margin-right: 12vw;
 }
 
 .step--left .card
 {
-    margin-left: 7vw;
+    margin-left: 12vw;
+}
+
+/* On laptop widths the centered model reaches toward a 12vw+400px card; pull
+   the card left just enough to clear the column silhouette (~21.5vh/world) */
+@media (min-width: 761px)
+{
+    .step--left .card
+    {
+        margin-left: clamp(4vw, calc(50vw - 400px - 21.5vh), 12vw);
+    }
 }
 
 .step--center .card
@@ -122,10 +184,13 @@ body
 }
 
 .step--model .card { top: 13vh; }
-.step--palette .card { top: 6vh; }
-.step--paint .card { top: 8vh; }
+.step--palette .card { top: 26vh; }
+.step--scene .card { top: 20vh; }
+.step--bake .card { top: 26vh; }
+.step--paint .card { top: 26vh; }
+.step--artist .card { top: 16vh; }
 .step--atlas .card { top: 10vh; }
-.step--batch .card { top: 34vh; }
+.step--batch .card { top: 30vh; }
 
 /**
  * Typography
@@ -357,15 +422,41 @@ body
     box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
 }
 
+/* Scripted artist-demo ghost (act 06) — driven per frame from choreography */
+.demo-ghost
+{
+    position: fixed;
+    left: -29px;
+    top: -29px;
+    z-index: 20;
+    width: 58px;
+    height: 58px;
+    border-radius: 11px;
+    background-size: cover;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Cards that sit over a scene window get a soft chip so text stays readable */
+.step--scene .card,
+.step--artist .card,
+.step--batch .card
+{
+    background: rgba(244, 242, 239, 0.82);
+    border-radius: 12px;
+    padding: 20px 22px;
+    backdrop-filter: blur(2px);
+}
+
 /**
- * Perf monitor
+ * Perf monitor — lives inside the scene-window chrome
  */
 .perf
 {
-    position: fixed;
-    top: 26px;
-    right: 26px;
-    z-index: 5;
+    position: absolute;
+    top: 16px;
+    right: 16px;
     min-width: 168px;
     background: var(--panel);
     color: #e8e5e0;

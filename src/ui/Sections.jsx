@@ -33,6 +33,9 @@ export default function Sections()
                     start: 'top 30%',
                     end: 'bottom 70%',
                     onToggle: (self) => { if(self.isActive) setStep(index) },
+                    // Symmetric on the way back up, so step-gated UI (the
+                    // tray) never lingers over the previous act
+                    onLeaveBack: () => setStep(Math.max(index - 1, 0)),
                 })
 
                 const timeline = gsap.timeline({
@@ -45,10 +48,25 @@ export default function Sections()
                 })
 
                 if(index > 0)
+                {
+                    const cardOut = STEPS[index].cardOut ?? 0.78
                     timeline.fromTo(card, { autoAlpha: 0, y: 44 }, { autoAlpha: 1, y: 0, duration: 0.15, ease: 'power2.out' }, 0.18)
+                    timeline.to(card, { autoAlpha: 0, y: - 32, duration: 0.15, ease: 'power1.in' }, cardOut)
+                }
+                else
+                {
+                    // The hero card leaves early — the scene reacts to the very
+                    // first scroll, and the copy should not linger over it
+                    timeline.to(card, { autoAlpha: 0, y: - 32, duration: 0.12, ease: 'power1.in' }, 0.52)
+                }
 
-                timeline.to(card, { autoAlpha: 0, y: - 32, duration: 0.15, ease: 'power1.in' }, 0.78)
                 timeline.to(card, { y: - 32, duration: 0.001 }, 0.999)
+            })
+
+            // Scroll cue vanishes the moment scrolling starts
+            gsap.to('.scroll-cue', {
+                autoAlpha: 0,
+                scrollTrigger: { start: 'top top', end: '160 top', scrub: true },
             })
         }, page)
 
@@ -62,8 +80,8 @@ export default function Sections()
                     <div className="card">
                         { step.hero === true &&
                             <header className="hero">
-                                <h1 className="hero-title">Flat<br />Palette</h1>
-                                <p className="hero-tagline">A hand-painting pipeline for production assets</p>
+                                <h1 className="hero-title">Hand-Painting<br />for Three.js</h1>
+                                <p className="hero-tagline">A production texture pipeline, told by one duck</p>
                             </header>
                         }
 
