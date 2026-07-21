@@ -37,8 +37,10 @@ function geometryFor(meshIndex)
     return geometry.toNonIndexed()
 }
 
-const duck = geometryFor(0)
-const column = geometryFor(1)
+// Map by node name (mesh order is not guaranteed across GLB re-exports)
+const meshOf = (name) => json.nodes.find((n) => n.name === name).mesh
+const duck = geometryFor(meshOf('duck'))
+const column = geometryFor(meshOf('column'))
 
 const problems = []
 const ok = (label) => console.log('  ok —', label)

@@ -44,11 +44,22 @@ export const WORLD = {
 }
 
 /**
- * The window scene — a 45° "level view"
+ * The window scene — a 45° "level view"   ← SCENE-PREVIEW ORIENTATION LIVES HERE
  *
- * One camera serves the whole page, so the window acts tilt the SCENE instead:
- * a group rotated (pitch, yaw) reads exactly like a camera at ~(7,7,7). Four
- * assemblies stand on an even XZ grid; the hero is always crew slot 1.
+ * How the scene-preview objects stand on the ground and are viewed at 45°:
+ *   - one camera serves the whole page, so instead of a second camera the whole
+ *     scene is tilted by (pitch, yaw) — reads exactly like a camera at ~(7,7,7);
+ *   - objects stay UPRIGHT (their own +Y), placed on the pre-tilt XZ plane at
+ *     ISO_SLOTS positions, so their feet all rest on one invisible ground plane
+ *     and columns render vertical on screen (see isoPoint / isoSlotOffset below);
+ *   - `standHeight` lifts each assembly so its base (geometry bottom at -1.3 in
+ *     the normalised space from useDuckColumn.jsx) sits exactly on that plane.
+ *
+ * Applied to the hero in choreography.js (heroIso) + DuckColumnAssembly.jsx, and
+ * to the crew in Crew.jsx. Tweak pitch/yaw here to change the whole level view.
+ *
+ * NOTE: this only reads right when the GLB geometry is upright (no baked node
+ * rotation). The optimised duckColumn.glb is; a tilted export would lean.
  */
 export const ISO = {
     pitch: 0.6155,   // atan(1 / sqrt(2)) — the classic isometric elevation
