@@ -3,7 +3,7 @@ import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useTexture } from '@react-three/drei'
 
-import useDuckColumn from './useDuckColumn.jsx'
+import usePairs from './usePairs.jsx'
 import { createAssetMaterial, updateAssetMaterial } from './materials/assetMaterial.js'
 import { createShadowMaterial } from './materials/softShadow.js'
 import { ensureLibrary, textureLibrary } from './textureLibrary.js'
@@ -13,18 +13,20 @@ import { COLORS, ISO, ISO_SLOTS, ISO_GRID_EXTENT, ISO_GRID_STEP, isoSlotOffset }
 
 /**
  * The crew — the three non-hero members of the four-piece cast (the hero owns
- * slot 1) plus the level-view floor grid and every contact shadow. One
- * component serves four acts:
+ * slot 1) plus the level-view floor grid and every contact shadow. Each member
+ * is a REAL object+column pair from pairs.glb (barrel, book, meat — the hero
+ * keeps the duck pair). One component serves four acts:
  *   03  standing on the grid in gradient look
  *   06  same scene, painted — the artist's context
  *   07  everyone HOLDS their slot while the texture sheets fly off the models
  *   09  back on the grid as wireframes, then the combined texture applies
- *       and every creature comes alive
+ *       and every object comes alive
  */
+// pair indexes into usePairs().crewPairs — [ barrel, book, meat ]
 const MEMBERS = [
-    { slot: 0, entry: 1, animal: 'duck' },
-    { slot: 2, entry: 2, animal: 'knot' },
-    { slot: 3, entry: 3, animal: 'torus' },
+    { slot: 0, entry: 1, pair: 'barrel' },
+    { slot: 2, entry: 2, pair: 'book' },
+    { slot: 3, entry: 3, pair: 'meat' },
 ]
 
 const easeOutBack = (t) =>
@@ -45,10 +47,10 @@ export default function Crew()
     const animals = useRef([])
     const shadows = useRef([])
 
-    const { duckGeometry, columnGeometry } = useDuckColumn()
+    const { crewPairs } = usePairs()
     const gradientTexture = useTexture('./textures/gradientPalette.png')
 
-    const { materials, wireMaterial, shadowMaterial, gridMaterial, gridGeometry, knotGeometry, torusGeometry } = useMemo(() =>
+    const { materials, wireMaterial, shadowMaterial, gridMaterial, gridGeometry } = useMemo(() =>
     {
         ensureLibrary(gradientTexture)
 
@@ -82,8 +84,6 @@ export default function Crew()
             shadowMaterial,
             gridMaterial,
             gridGeometry,
-            knotGeometry: new THREE.TorusKnotGeometry(0.3, 0.1, 96, 14),
-            torusGeometry: new THREE.TorusGeometry(0.32, 0.13, 14, 28),
         }
     }, [gradientTexture])
 
@@ -144,15 +144,30 @@ export default function Crew()
             })
 
             /**
-             * Creature life — mild by default, full personality once the
-             * combined texture lands in act 09
+             * Object life — mild float by default, full personality once the
+             * combined texture lands in act 09. The pair geometries carry
+             * their authored offsets (the object already floats above its
+             * column), so everything here is ADDED on top: floats, yaw spins
+             * around the column axis and the meat hop — no re-positioning.
              */
             const animal = animals.current[index]
             if(animal)
             {
                 const amp = smooth(clamp01(params.batchTexApply * 1.6 - index * 0.2))
 
-                if(member.animal === 'duck')
+                if(member.pair === 'barrel')
+                {
+                    animal.position.y = Math.sin(elapsed * 1.1 + 1.6) * 0.06
+                    animal.rotation.y = elapsed * (0.35 + 0.65 * amp)
+                    animal.rotation.z = Math.sin(elapsed * 0.7) * 0.06 * amp
+                }
+                else if(member.pair === 'book')
+                {
+                    animal.position.y = Math.sin(elapsed * 0.9 + 4) * 0.06
+                    animal.rotation.y = Math.sin(elapsed * 0.8) * (0.12 + 0.5 * amp)
+                    animal.rotation.z = Math.sin(elapsed * 1.4 + 1) * 0.1 * amp
+                }
+                else // meat — the hopper
                 {
                     const phase = (elapsed / 2.6 + 0.2) % 1
                     const inHop = clamp01((phase - 0.3) / 0.32)
@@ -160,18 +175,6 @@ export default function Crew()
                     animal.position.y = Math.sin(elapsed * 1.3 + 0.7) * 0.06 + hop * 0.42
                     animal.scale.y = 1 + 0.14 * hop - 0.12 * amp * Math.exp(- Math.pow((phase - 0.66) * 22, 2))
                     animal.rotation.z = hop * 0.12
-                }
-                else if(member.animal === 'knot')
-                {
-                    animal.rotation.y = elapsed * (0.4 + 0.6 * amp)
-                    animal.rotation.z = Math.sin(elapsed * 0.7) * 0.15 * amp
-                    animal.position.y = 0.95 + Math.sin(elapsed * 1.1 + 1.6) * 0.06
-                }
-                else
-                {
-                    animal.rotation.x = 0.5 + elapsed * (0.25 + 0.95 * amp)
-                    animal.position.y = 0.95 + Math.sin(elapsed * 0.9 + 4) * 0.05
-                    animal.position.z = Math.sin(elapsed * 0.9) * 0.08 * amp
                 }
             }
 
@@ -213,22 +216,12 @@ export default function Crew()
                     key={ member.slot }
                     ref={ (instance) => { bodies.current[index] = instance } }
                 >
-                    <mesh geometry={ columnGeometry } material={ materials[index] } />
-                    <mesh geometry={ columnGeometry } material={ wireMaterial } />
+                    <mesh geometry={ crewPairs[index].columnGeometry } material={ materials[index] } />
+                    <mesh geometry={ crewPairs[index].columnGeometry } material={ wireMaterial } />
 
                     <group ref={ (instance) => { animals.current[index] = instance } }>
-                        { member.animal === 'duck' && <>
-                            <mesh geometry={ duckGeometry } material={ materials[index] } />
-                            <mesh geometry={ duckGeometry } material={ wireMaterial } />
-                        </> }
-                        { member.animal === 'knot' && <>
-                            <mesh geometry={ knotGeometry } material={ materials[index] } />
-                            <mesh geometry={ knotGeometry } material={ wireMaterial } />
-                        </> }
-                        { member.animal === 'torus' && <>
-                            <mesh geometry={ torusGeometry } material={ materials[index] } />
-                            <mesh geometry={ torusGeometry } material={ wireMaterial } />
-                        </> }
+                        <mesh geometry={ crewPairs[index].objectGeometry } material={ materials[index] } />
+                        <mesh geometry={ crewPairs[index].objectGeometry } material={ wireMaterial } />
                     </group>
                 </group>
             ) }

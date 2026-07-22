@@ -1,10 +1,11 @@
-// Headless verification of the island model against the real GLB
+// Headless verification of the island model against the real GLB (the hero
+// duck + column_duck pair from pairs.glb — the only pair carrying TEXCOORD_1)
 import * as THREE from 'three'
 import fs from 'node:fs'
 import { buildIslandModel } from '../src/world/unwrapLayout.js'
 import { buildUvLineData } from '../src/world/uvIslands.js'
 
-const buf = fs.readFileSync('C:/Users/user/Documents/projects/lecturew/hand-painting/public/models/duckColumn.glb')
+const buf = fs.readFileSync(new URL('../public/models/pairs.glb', import.meta.url))
 const jsonLen = buf.readUInt32LE(12)
 const json = JSON.parse(buf.slice(20, 20 + jsonLen).toString('utf8'))
 const binStart = 20 + jsonLen + 8
@@ -40,7 +41,7 @@ function geometryFor(meshIndex)
 // Map by node name (mesh order is not guaranteed across GLB re-exports)
 const meshOf = (name) => json.nodes.find((n) => n.name === name).mesh
 const duck = geometryFor(meshOf('duck'))
-const column = geometryFor(meshOf('column'))
+const column = geometryFor(meshOf('column_duck'))
 
 const problems = []
 const ok = (label) => console.log('  ok —', label)

@@ -53,13 +53,13 @@ export const WORLD = {
  *     ISO_SLOTS positions, so their feet all rest on one invisible ground plane
  *     and columns render vertical on screen (see isoPoint / isoSlotOffset below);
  *   - `standHeight` lifts each assembly so its base (geometry bottom at -1.3 in
- *     the normalised space from useDuckColumn.jsx) sits exactly on that plane.
+ *     the normalised space from usePairs.jsx) sits exactly on that plane.
  *
  * Applied to the hero in choreography.js (heroIso) + DuckColumnAssembly.jsx, and
  * to the crew in Crew.jsx. Tweak pitch/yaw here to change the whole level view.
  *
  * NOTE: this only reads right when the GLB geometry is upright (no baked node
- * rotation). The optimised duckColumn.glb is; a tilted export would lean.
+ * rotation). The pairs.glb columns are; a tilted export would lean.
  */
 export const ISO = {
     pitch: 0.6155,   // atan(1 / sqrt(2)) — the classic isometric elevation

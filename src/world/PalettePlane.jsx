@@ -3,7 +3,7 @@ import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useTexture } from '@react-three/drei'
 
-import useDuckColumn from './useDuckColumn.jsx'
+import usePairs from './usePairs.jsx'
 import { buildUvLineData } from './uvIslands.js'
 import { prepareMapTexture, ensureLibrary, getPaintedDefault } from './textureLibrary.js'
 import { params } from '../scroll/choreography.js'
@@ -22,7 +22,7 @@ export default function PalettePlane()
     const sweep = useRef()
     const paintOverlay = useRef()
 
-    const { duckGeometry, columnGeometry, islandModel } = useDuckColumn()
+    const { islandModel } = usePairs()
     const gradientTexture = useTexture('./textures/gradientPalette.png')
 
     const size = WORLD.paletteSize

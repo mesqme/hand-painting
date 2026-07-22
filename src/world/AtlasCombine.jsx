@@ -21,7 +21,7 @@ const SHEET_END_SIZE = 0.88
 const QUADRANTS = [ [ - 0.44, 0.44 ], [ 0.44, 0.44 ], [ - 0.44, - 0.44 ], [ 0.44, - 0.44 ] ]
 
 // Which crew slot each quadrant's sheet lifts off from, and the texture that
-// model wears at the end of act 06 (duck warm, hero dusk, knot moss, torus dusk)
+// model wears at the end of act 06 (barrel warm, hero dusk, book moss, meat dusk)
 const SHEET_SOURCES = [
     { slot: 0, entry: 1 },
     { slot: 1, entry: 3 },

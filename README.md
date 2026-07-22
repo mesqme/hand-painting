@@ -23,12 +23,12 @@ npm run build    # static build in dist/
 | 6 | Artist live loop | The SAME level view, now painted; a **texture dropdown docked next to the model** opens by script, picks a texture, and the hero repaints — the dropdown is also fully real (click it), plus the OS PNG drop |
 | 7 | Combine | Nobody moves: the crew HOLDS its window slots while each model's texture sheet lifts off it and the four sheets fly into one 2×2 atlas docked right |
 | 8 | Compress | Atlas shrinks into the floating stamped KTX2 chip next to the script |
-| 9 | Batch | Level view returns in **wireframe**; the KTX chip flies in, the combined texture applies member-by-member, and every creature comes alive (hop / spin / roll). Perf monitor lives inside the window; draw calls **staged as "1"** for the draft — the real BatchedMesh version is a separate production task |
+| 9 | Batch | Level view returns in **wireframe**; the KTX chip flies in, the combined texture applies member-by-member, and every object comes alive (barrel spins, book sways, meat hops). Perf monitor lives inside the window; draw calls **staged as "1"** for the draft — the real BatchedMesh version is a separate production task |
 
 ## The unwrap is real (TEXCOORD_1)
 
-`duckColumn.glb` carries the real seam-cut unwrap in its **second UV layer
-(`TEXCOORD_1` → `uv1`)**. Duck and column were **unwrapped together into ONE
+The hero pair in `pairs.glb` carries the real seam-cut unwrap in its **second
+UV layer (`TEXCOORD_1` → `uv1`)**. Duck and column were **unwrapped together into ONE
 shared texture** that fills the whole 0–1 space, so `unwrapLayout.js` uses uv1
 verbatim — no re-packing, no per-mesh rescaling:
 - **islands** = connected charts in uv1 (22: duck 4, column 18);
@@ -109,6 +109,8 @@ grid. Re-run after touching `ISO`, `ISO_SLOTS`, or `ISO_GRID_EXTENT`.
 
 ## Model source
 
-`public/models/duckColumn.glb` — nodes `duck` and `column`; authored Blender tilt
-is baked into the geometry at load and the pair is normalised to a 2.6-unit-tall
-assembly centered on the origin (`src/world/useDuckColumn.jsx`).
+`public/models/pairs.glb` — four object+column pairs: `duck`/`column_duck`
+(the hero, the only pair with `TEXCOORD_1`), `barrel`/`column_barrel`,
+`book`/`column_book` and `meat`/`column_meat` (the crew). Authored Blender
+transforms are baked into the geometries at load and every pair is normalised
+to a 2.6-unit-tall assembly centered on the origin (`src/world/usePairs.jsx`).

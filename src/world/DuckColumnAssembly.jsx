@@ -6,7 +6,7 @@ import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeome
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import gsap from 'gsap'
 
-import useDuckColumn from './useDuckColumn.jsx'
+import usePairs from './usePairs.jsx'
 import { createAssetMaterial, updateAssetMaterial } from './materials/assetMaterial.js'
 import { ensureLibrary, getTextureById, getPaintedDefault, textureLibrary } from './textureLibrary.js'
 import useStage from '../stores/useStage.jsx'
@@ -26,7 +26,7 @@ export default function DuckColumnAssembly()
     const wireDuck = useRef()
     const currentPaint = useRef(null)
 
-    const { duckGeometry, columnGeometry, duckSeams, columnSeams } = useDuckColumn()
+    const { duckGeometry, columnGeometry, duckSeams, columnSeams } = usePairs()
     const gradientTexture = useTexture('./textures/gradientPalette.png')
 
     /**
