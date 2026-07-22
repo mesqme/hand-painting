@@ -1,20 +1,23 @@
 import * as THREE from 'three'
 
 /**
- * Island model
+ * Island model — from the REAL second UV layer (TEXCOORD_1 → uv1)
  *
- * The shipped GLB's TEXCOORD_0 is a gradient-palette lookup (tiny strips), so
- * real unwrap data doesn't exist in the file yet. This builds a plausible
- * stand-in from the mesh itself: faces are welded by position and region-grown
- * into clusters by normal similarity — giving big, unwrap-like islands with
- * honest SEAM LINES between them — then each cluster is planar-projected and
- * shelf-packed into the 0-1 square (the `aUnwrapUv` attribute).
+ * The optimised GLB carries a proper seam-cut unwrap in uv1 (the baked-texture
+ * layout). This derives everything the presentation needs straight from it:
+ *   - islands   = connected charts in uv1 (vertices welded by uv1; a seam is
+ *                 exactly where two charts split, so welding reunites a chart
+ *                 and separates across seams);
+ *   - seams     = uv1 chart-boundary edges, drawn in 3D on the model (act 04);
+ *   - outlines  = the SAME boundary edges in uv1-layout space, animated onto
+ *                 the gradient-palette strips (uv0) for act 02;
+ *   - aUnwrapUv = uv1 itself (the flatten-morph target + the act-02 sample
+ *                 start pose), aPackOrder = per-island stagger order.
  *
- * REPLACEMENT PATH: when the real seam-cut export lands as TEXCOORD_1, derive
- * islands from uv1 connectivity and seams from edges split in uv1 — everything
- * downstream (attributes, outlines, morph, seams rendering) keeps its shape.
+ * uv0 (TEXCOORD_0) stays the gradient-palette strip lookup — islands land on
+ * their uv0 strip at the end of the act-02 animation.
  *
- * Expects NON-INDEXED geometries (each face owns its 3 corners).
+ * Expects NON-INDEXED geometries carrying `uv` (uv0) and `uv1`.
  */
 export function buildIslandModel(geometries)
 {
@@ -23,352 +26,197 @@ export function buildIslandModel(geometries)
     const perGeometry = []
 
     /**
-     * Pass 1 — weld, adjacency, clustering, seams
+     * Pass 1 — per geometry: uv1 islands, boundary edges, 3D seams
      */
     for(const geometry of geometries)
     {
-        const positions = geometry.attributes.position
-        const normals = geometry.attributes.normal
-        const faceCount = positions.count / 3
+        const position = geometry.attributes.position
+        const uv0 = geometry.attributes.uv
+        const uv1 = geometry.attributes.uv1
+        const cornerCount = position.count
+        const triCount = cornerCount / 3
 
-        // Weld corners by position
-        const weldOf = new Int32Array(positions.count)
-        const weldIds = new Map()
-        for(let i = 0; i < positions.count; i++)
+        // Weld corners by uv1 coordinate (identity within a chart, split at seams)
+        const uvKey = (c) => `${ Math.round(uv1.getX(c) * 1e4) }_${ Math.round(uv1.getY(c) * 1e4) }`
+        const weldId = new Map()
+        const weldOf = new Int32Array(cornerCount)
+        for(let c = 0; c < cornerCount; c++)
         {
-            const key = `${ Math.round(positions.getX(i) * 10000) }_${ Math.round(positions.getY(i) * 10000) }_${ Math.round(positions.getZ(i) * 10000) }`
-            let id = weldIds.get(key)
+            const key = uvKey(c)
+            let id = weldId.get(key)
             if(id === undefined)
             {
-                id = weldIds.size
-                weldIds.set(key, id)
+                id = weldId.size
+                weldId.set(key, id)
             }
-            weldOf[i] = id
+            weldOf[c] = id
         }
 
-        // Face normals + welded-edge → faces
-        const faceNormals = []
-        const edgeFaces = new Map()
-        const edgeKey = (a, b) => a < b ? a * 1000000 + b : b * 1000000 + a
+        // Union-find over welded uv1 vertices → island per connected chart
+        const parent = new Int32Array(weldId.size)
+        for(let i = 0; i < weldId.size; i++)
+            parent[i] = i
 
-        for(let face = 0; face < faceCount; face++)
+        const find = (i) =>
         {
-            const normal = new THREE.Vector3()
-            for(let corner = 0; corner < 3; corner++)
+            while(parent[i] !== i)
             {
-                const i = face * 3 + corner
-                normal.x += normals.getX(i)
-                normal.y += normals.getY(i)
-                normal.z += normals.getZ(i)
+                parent[i] = parent[parent[i]]
+                i = parent[i]
             }
-            normal.normalize()
-            faceNormals.push(normal)
+            return i
+        }
 
+        for(let t = 0; t < triCount; t++)
+        {
+            const a = find(weldOf[t * 3 + 0])
+            const b = find(weldOf[t * 3 + 1])
+            const c = find(weldOf[t * 3 + 2])
+            if(b !== a) parent[b] = a
+            if(c !== a) parent[c] = a
+        }
+
+        // Island records, accumulated globally
+        const islandOfRoot = new Map()
+        const ensureIsland = (root) =>
+        {
+            let island = islandOfRoot.get(root)
+            if(!island)
+            {
+                island = {
+                    geometry,
+                    corners: [],
+                    minU1: Infinity, maxU1: - Infinity, minV1: Infinity, maxV1: - Infinity,
+                    sumU0: 0, sumV0: 0, sumU1: 0, sumV1: 0, count: 0,
+                }
+                islandOfRoot.set(root, island)
+                allIslands.push(island)
+            }
+            return island
+        }
+
+        for(let c = 0; c < cornerCount; c++)
+        {
+            const island = ensureIsland(find(weldOf[c]))
+            island.corners.push(c)
+            const u1 = uv1.getX(c)
+            const v1 = uv1.getY(c)
+            island.minU1 = Math.min(island.minU1, u1)
+            island.maxU1 = Math.max(island.maxU1, u1)
+            island.minV1 = Math.min(island.minV1, v1)
+            island.maxV1 = Math.max(island.maxV1, v1)
+            island.sumU0 += uv0.getX(c)
+            island.sumV0 += uv0.getY(c)
+            island.sumU1 += u1
+            island.sumV1 += v1
+            island.count++
+        }
+
+        // uv1 chart-boundary edges (welded uv1 edge used by exactly one triangle)
+        const edgeKey = (a, b) => a < b ? a * 1000003 + b : b * 1000003 + a
+        const edgeUse = new Map()
+        for(let t = 0; t < triCount; t++)
+        {
             for(let e = 0; e < 3; e++)
             {
-                const wa = weldOf[face * 3 + e]
-                const wb = weldOf[face * 3 + (e + 1) % 3]
-                if(wa === wb)
+                const a = weldOf[t * 3 + e]
+                const b = weldOf[t * 3 + (e + 1) % 3]
+                if(a === b)
                     continue
-                const key = edgeKey(wa, wb)
-                let list = edgeFaces.get(key)
-                if(!list)
-                {
-                    list = []
-                    edgeFaces.set(key, list)
-                }
-                list.push(face)
+                const key = edgeKey(a, b)
+                edgeUse.set(key, (edgeUse.get(key) ?? 0) + 1)
             }
         }
 
-        // Region growing — clusters of similar-facing connected faces
-        const clusterOf = new Int32Array(faceCount).fill(- 1)
-        const clusters = []
-        const capFaces = Math.max(48, Math.floor(faceCount / 7))
-        const cosThreshold = 0.6
-
-        for(let seed = 0; seed < faceCount; seed++)
+        const seamPositions = []
+        const boundaryEdges = []
+        for(let t = 0; t < triCount; t++)
         {
-            if(clusterOf[seed] !== - 1)
-                continue
-
-            const clusterIndex = clusters.length
-            const cluster = { faces: [], normal: faceNormals[seed].clone() }
-            clusters.push(cluster)
-
-            const queue = [ seed ]
-            clusterOf[seed] = clusterIndex
-            let claimed = 1
-
-            while(queue.length > 0)
+            for(let e = 0; e < 3; e++)
             {
-                const face = queue.shift()
-                cluster.faces.push(face)
-                cluster.normal.add(faceNormals[face]).normalize()
-
-                if(claimed >= capFaces)
+                const ci = t * 3 + e
+                const cj = t * 3 + (e + 1) % 3
+                const a = weldOf[ci]
+                const b = weldOf[cj]
+                if(a === b || edgeUse.get(edgeKey(a, b)) !== 1)
                     continue
 
-                for(let e = 0; e < 3; e++)
-                {
-                    const wa = weldOf[face * 3 + e]
-                    const wb = weldOf[face * 3 + (e + 1) % 3]
-                    if(wa === wb)
-                        continue
-                    for(const neighbour of edgeFaces.get(edgeKey(wa, wb)))
-                    {
-                        if(clusterOf[neighbour] !== - 1 || claimed >= capFaces)
-                            continue
-                        if(faceNormals[neighbour].dot(cluster.normal) < cosThreshold)
-                            continue
-                        clusterOf[neighbour] = clusterIndex
-                        claimed++
-                        queue.push(neighbour)
-                    }
-                }
+                seamPositions.push(
+                    position.getX(ci), position.getY(ci), position.getZ(ci),
+                    position.getX(cj), position.getY(cj), position.getZ(cj)
+                )
+                boundaryEdges.push({ ci, cj, island: islandOfRoot.get(find(a)) })
             }
         }
 
-        // Seams — welded edges whose faces sit in different clusters
-        const seamPoints = []
-        for(const [key, faces] of edgeFaces)
-        {
-            if(faces.length < 2)
-                continue
-
-            let mixed = false
-            for(let i = 1; i < faces.length; i++)
-                if(clusterOf[faces[i]] !== clusterOf[faces[0]]) { mixed = true; break }
-            if(!mixed)
-                continue
-
-            const wa = Math.floor(key / 1000000)
-            const wb = key % 1000000
-            const face = faces[0]
-            let cornerA = - 1
-            let cornerB = - 1
-            for(let corner = 0; corner < 3; corner++)
-            {
-                const i = face * 3 + corner
-                if(weldOf[i] === wa) cornerA = i
-                if(weldOf[i] === wb) cornerB = i
-            }
-            if(cornerA === - 1 || cornerB === - 1)
-                continue
-
-            seamPoints.push(
-                positions.getX(cornerA), positions.getY(cornerA), positions.getZ(cornerA),
-                positions.getX(cornerB), positions.getY(cornerB), positions.getZ(cornerB)
-            )
-        }
-        seamsByGeometry.set(geometry, new Float32Array(seamPoints))
-
-        // Cluster records → islands with planar projection
-        for(const cluster of clusters)
-        {
-            const normal = cluster.normal.clone().normalize()
-            if(normal.lengthSq() < 0.5)
-                normal.set(0, 0, 1)
-            const up = Math.abs(normal.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0)
-            const axisU = new THREE.Vector3().crossVectors(up, normal).normalize()
-            const axisV = new THREE.Vector3().crossVectors(normal, axisU)
-
-            const projected = new Map()
-            let minU = Infinity, maxU = - Infinity, minV = Infinity, maxV = - Infinity
-            const point = new THREE.Vector3()
-
-            for(const face of cluster.faces)
-            {
-                for(let corner = 0; corner < 3; corner++)
-                {
-                    const i = face * 3 + corner
-                    point.set(positions.getX(i), positions.getY(i), positions.getZ(i))
-                    const u = point.dot(axisU)
-                    const v = point.dot(axisV)
-                    projected.set(i, [ u, v ])
-                    if(u < minU) minU = u
-                    if(u > maxU) maxU = u
-                    if(v < minV) minV = v
-                    if(v > maxV) maxV = v
-                }
-            }
-
-            allIslands.push({
-                geometry,
-                faces: cluster.faces,
-                projected,
-                minU, minV,
-                width: Math.max(maxU - minU, 0.0001),
-                height: Math.max(maxV - minV, 0.0001),
-            })
-        }
-
-        perGeometry.push({ geometry, clusterOf, edgeFaces, weldOf })
+        seamsByGeometry.set(geometry, new Float32Array(seamPositions))
+        perGeometry.push({ geometry, boundaryEdges })
     }
 
     /**
-     * Pass 2 — shelf-pack every island into the unit square
-     */
-    const padding = 0.014
-    let totalArea = 0
-    let maxDimension = 0
-    for(const island of allIslands)
-    {
-        totalArea += island.width * island.height
-        maxDimension = Math.max(maxDimension, island.width, island.height)
-    }
-
-    let scale = Math.min(Math.sqrt(0.52 / totalArea), 0.42 / maxDimension)
-
-    const pack = (s) =>
-    {
-        const sorted = [...allIslands].sort((a, b) => b.height * s - a.height * s)
-        let cursorX = padding
-        let cursorY = padding
-        let rowHeight = 0
-
-        for(const island of sorted)
-        {
-            const w = island.width * s
-            const h = island.height * s
-            if(cursorX + w + padding > 1)
-            {
-                cursorX = padding
-                cursorY += rowHeight + padding
-                rowHeight = 0
-            }
-            island.originX = cursorX
-            island.originY = cursorY
-            rowHeight = Math.max(rowHeight, h)
-            cursorX += w + padding
-        }
-        return cursorY + rowHeight + padding
-    }
-
-    let used = pack(scale)
-    if(used > 1)
-    {
-        scale = scale / used * 0.96
-        used = pack(scale)
-    }
-    const offsetY = Math.max((1 - used) * 0.5, 0)
-
-    /**
-     * Pass 3 — pack order (single source of truth for the act-02 lockstep)
+     * Finalize island metrics + one global pack order (the act-02 lockstep)
      */
     for(const island of allIslands)
     {
-        island.unwrapScale = scale
-        island.centerX = island.originX + island.width * scale * 0.5
-        island.centerY = island.originY + offsetY + island.height * scale * 0.5
+        island.uv0c = [ island.sumU0 / island.count, island.sumV0 / island.count ]
+        island.uv1c = [ island.sumU1 / island.count, island.sumV1 / island.count ]
+        const extent = Math.max(island.maxU1 - island.minU1, island.maxV1 - island.minV1, 0.0001)
+        island.endScale = Math.min(0.035 / extent, 1)
     }
 
-    const sorted = [...allIslands].sort((a, b) =>
+    const sorted = [...allIslands].sort((a, b) => (a.uv1c[0] - b.uv1c[0]) || (b.uv1c[1] - a.uv1c[1]))
+    sorted.forEach((island, index) =>
     {
-        return (a.centerX - b.centerX) || (b.centerY - a.centerY)
-    })
-    sorted.forEach((island, order) =>
-    {
-        island.orderNorm = sorted.length > 1 ? order / (sorted.length - 1) : 0
+        island.order = allIslands.length > 1 ? index / (allIslands.length - 1) : 0
     })
 
     /**
-     * Pass 4 — attributes + real-uv landing data
+     * Pass 2 — attributes (aUnwrapUv = uv1, aPackOrder) + outline segments
      */
-    const unwrapArrays = new Map()
-    const orderArrays = new Map()
     for(const geometry of geometries)
     {
-        unwrapArrays.set(geometry, new Float32Array(geometry.attributes.position.count * 2))
-        orderArrays.set(geometry, new Float32Array(geometry.attributes.position.count))
+        const uv1 = geometry.attributes.uv1
+        const cornerCount = geometry.attributes.position.count
+        const unwrapArray = new Float32Array(cornerCount * 2)
+        const orderArray = new Float32Array(cornerCount)
+
+        // aUnwrapUv is uv1 verbatim; order is written per island below
+        for(let c = 0; c < cornerCount; c++)
+        {
+            unwrapArray[c * 2 + 0] = uv1.getX(c)
+            unwrapArray[c * 2 + 1] = uv1.getY(c)
+        }
+
+        geometry.setAttribute('aUnwrapUv', new THREE.BufferAttribute(unwrapArray, 2))
+        geometry.setAttribute('aPackOrder', new THREE.BufferAttribute(orderArray, 1))
     }
 
     for(const island of allIslands)
     {
-        const unwrapArray = unwrapArrays.get(island.geometry)
-        const orderArray = orderArrays.get(island.geometry)
-        const uv = island.geometry.attributes.uv
-
-        let uvMinU = Infinity, uvMaxU = - Infinity, uvMinV = Infinity, uvMaxV = - Infinity
-        let uvSumU = 0, uvSumV = 0
-
-        for(const [ corner, [ u, v ] ] of island.projected)
-        {
-            unwrapArray[corner * 2 + 0] = island.originX + (u - island.minU) * scale
-            unwrapArray[corner * 2 + 1] = island.originY + offsetY + (v - island.minV) * scale
-            orderArray[corner] = island.orderNorm
-
-            const ru = uv.getX(corner)
-            const rv = uv.getY(corner)
-            uvSumU += ru
-            uvSumV += rv
-            if(ru < uvMinU) uvMinU = ru
-            if(ru > uvMaxU) uvMaxU = ru
-            if(rv < uvMinV) uvMinV = rv
-            if(rv > uvMaxV) uvMaxV = rv
-        }
-
-        island.stripU = uvSumU / island.projected.size
-        island.stripV = uvSumV / island.projected.size
-
-        // Landing pose keeps the recognisable layout shape at tick size
-        const layoutExtent = Math.max(island.width * scale, island.height * scale, 0.0001)
-        island.endScale = Math.min(0.035 / layoutExtent, 1)
+        const orderArray = island.geometry.attributes.aPackOrder.array
+        for(const corner of island.corners)
+            orderArray[corner] = island.order
     }
 
-    for(const geometry of geometries)
-    {
-        geometry.setAttribute('aUnwrapUv', new THREE.BufferAttribute(unwrapArrays.get(geometry), 2))
-        geometry.setAttribute('aPackOrder', new THREE.BufferAttribute(orderArrays.get(geometry), 1))
-    }
-
-    /**
-     * Pass 5 — island outline segments for the act-02 line animation
-     */
     const outlineSegments = []
-    for(const { geometry, clusterOf, edgeFaces, weldOf } of perGeometry)
+    for(const { geometry, boundaryEdges } of perGeometry)
     {
-        const unwrapArray = unwrapArrays.get(geometry)
-        const islandsOfGeometry = allIslands.filter((island) => island.geometry === geometry)
-
-        for(const island of islandsOfGeometry)
+        const uv1 = geometry.attributes.uv1
+        for(const { ci, cj, island } of boundaryEdges)
         {
-            const layoutCenterX = island.centerX
-            const layoutCenterY = island.centerY
-
-            for(const face of island.faces)
-            {
-                for(let e = 0; e < 3; e++)
-                {
-                    const cornerA = face * 3 + e
-                    const cornerB = face * 3 + (e + 1) % 3
-                    const wa = weldOf[cornerA]
-                    const wb = weldOf[cornerB]
-                    if(wa === wb)
-                        continue
-
-                    const key = wa < wb ? wa * 1000000 + wb : wb * 1000000 + wa
-                    const sharing = edgeFaces.get(key)
-                    let boundary = sharing.length < 2
-                    if(!boundary)
-                        for(const other of sharing)
-                            if(clusterOf[other] !== clusterOf[face]) { boundary = true; break }
-                    if(!boundary)
-                        continue
-
-                    const layout = [
-                        unwrapArray[cornerA * 2 + 0], unwrapArray[cornerA * 2 + 1],
-                        unwrapArray[cornerB * 2 + 0], unwrapArray[cornerB * 2 + 1],
-                    ]
-                    const strip = [
-                        island.stripU + (layout[0] - layoutCenterX) * island.endScale,
-                        island.stripV + (layout[1] - layoutCenterY) * island.endScale,
-                        island.stripU + (layout[2] - layoutCenterX) * island.endScale,
-                        island.stripV + (layout[3] - layoutCenterY) * island.endScale,
-                    ]
-                    outlineSegments.push({ layout, strip, order: island.orderNorm })
-                }
-            }
+            const wi = [ uv1.getX(ci), uv1.getY(ci) ]
+            const wj = [ uv1.getX(cj), uv1.getY(cj) ]
+            outlineSegments.push({
+                // Full unwrap pose (uv1), and the shrink onto the uv0 strip
+                layout: [ wi[0], wi[1], wj[0], wj[1] ],
+                strip: [
+                    island.uv0c[0] + (wi[0] - island.uv1c[0]) * island.endScale,
+                    island.uv0c[1] + (wi[1] - island.uv1c[1]) * island.endScale,
+                    island.uv0c[0] + (wj[0] - island.uv1c[0]) * island.endScale,
+                    island.uv0c[1] + (wj[1] - island.uv1c[1]) * island.endScale,
+                ],
+                order: island.order,
+            })
         }
     }
 

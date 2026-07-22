@@ -27,7 +27,7 @@ function geometryFor(meshIndex)
 {
     const prim = json.meshes[meshIndex].primitives[0]
     const geometry = new THREE.BufferGeometry()
-    for(const [name, attr] of [ [ 'position', 'POSITION' ], [ 'normal', 'NORMAL' ], [ 'uv', 'TEXCOORD_0' ] ])
+    for(const [name, attr] of [ [ 'position', 'POSITION' ], [ 'normal', 'NORMAL' ], [ 'uv', 'TEXCOORD_0' ], [ 'uv1', 'TEXCOORD_1' ] ])
     {
         const { array, itemSize } = readAccessor(prim.attributes[attr])
         geometry.setAttribute(name, new THREE.BufferAttribute(array, itemSize))
@@ -48,9 +48,9 @@ const ok = (label) => console.log('  ok —', label)
 const islandModel = buildIslandModel([ duck, column ])
 console.log(`islands: ${ islandModel.islands.length }, outline segments: ${ islandModel.outlineSegments.length }`)
 
-// Island count sanity — clusters, not per-face fragments
-if(islandModel.islands.length < 8 || islandModel.islands.length > 120)
-    problems.push(`island count ${ islandModel.islands.length } outside the plausible 8..120 range`)
+// Island count sanity — real uv1 charts (duck ~4 + column ~18)
+if(islandModel.islands.length < 3 || islandModel.islands.length > 80)
+    problems.push(`island count ${ islandModel.islands.length } outside the plausible 3..80 range`)
 else
     ok(`island count plausible (${ islandModel.islands.length })`)
 

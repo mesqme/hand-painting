@@ -49,11 +49,12 @@ export default function useDuckColumn()
         duckGeometry.applyMatrix4(normalise)
         columnGeometry.applyMatrix4(normalise)
 
-        // Face-owned corners for clean island assignment
+        // Face-owned corners so every corner carries its own uv1 (seams are
+        // split corners) for clean island + seam derivation
         duckGeometry = duckGeometry.toNonIndexed()
         columnGeometry = columnGeometry.toNonIndexed()
 
-        // Stand-in islands + seams until the real TEXCOORD_1 export lands
+        // Real islands + seams from the GLB's second UV layer (TEXCOORD_1)
         const islandModel = buildIslandModel([ duckGeometry, columnGeometry ])
 
         // Seam-line buffers per part, so the duck's seams ride its float

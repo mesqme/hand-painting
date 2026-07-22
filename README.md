@@ -25,14 +25,19 @@ npm run build    # static build in dist/
 | 8 | Compress | Atlas shrinks into the floating stamped KTX2 chip next to the script |
 | 9 | Batch | Level view returns in **wireframe**; the KTX chip flies in, the combined texture applies member-by-member, and every creature comes alive (hop / spin / roll). Perf monitor lives inside the window; draw calls **staged as "1"** for the draft — the real BatchedMesh version is a separate production task |
 
-## What unblocks the real bake act
+## The unwrap is real (TEXCOORD_1)
 
-Re-export `duckColumn.glb` with a second UV set: **`TEXCOORD_1` = the real
-seam-cut unwrap**. Islands and red seam lines are then derived automatically
-(seams = edges split in uv1 that coincide in 3D) — no manual seam markup
-needed. Until then `unwrapLayout.js` region-grows stand-in islands from the
-mesh (72 clusters currently) so every animation already works. Later: the
-baked PNG for that layout, and real hand-painted textures.
+`duckColumn.glb` carries the real seam-cut unwrap in its **second UV layer
+(`TEXCOORD_1` → `uv1`)**. `unwrapLayout.js` derives everything from it:
+- **islands** = connected charts in uv1 (22: duck 4, column 18);
+- **seams** (act 04, red lines on the model) = uv1 chart-boundary edges in 3D;
+- **act-02 outlines** = the same boundaries in uv1-layout space, animating onto
+  the gradient-palette strips (`uv0`);
+- **`aUnwrapUv`** = `uv1` (the flatten target + act-02 sample start pose).
+
+`uv0` (`TEXCOORD_0`) stays the gradient-palette strip lookup. Still to come from
+the artist side: the baked PNG for this layout and real hand-painted textures
+(drop any PNG on the page in act 06 to preview one live).
 
 ## How it's wired
 
