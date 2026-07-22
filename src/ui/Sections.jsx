@@ -78,21 +78,25 @@ export default function Sections()
             { STEPS.map((step, index) =>
                 <section key={ step.id } className={ `step step--${ step.side } step--${ step.id }` }>
                     <div className="card">
-                        { step.hero === true &&
-                            <header className="hero">
-                                <h1 className="hero-title">Hand-Painting<br />for Three.js</h1>
-                                <p className="hero-tagline">A production texture pipeline, told by one duck</p>
+                        { step.hero === true
+                            ? <header className="hero">
+                                <h1 className="hero-title">
+                                    { step.title.split('\n').map((line, i) =>
+                                        <span key={ i }>{ i > 0 && <br /> }{ line }</span>
+                                    ) }
+                                </h1>
+                                <p className="hero-tagline">{ step.body }</p>
                             </header>
-                        }
+                            : <>
+                                <h2 className="kicker">{ step.kicker }</h2>
+                                <p className="body">{ step.body }</p>
 
-                        <p className="kicker">{ step.kicker }</p>
-                        <h2 className="title">{ step.title }</h2>
-                        <p className="body">{ step.body }</p>
+                                { step.hint && <p className="hint">{ step.hint }</p> }
 
-                        { step.hint && <p className="hint">{ step.hint }</p> }
-
-                        { step.terminal &&
-                            <pre className="terminal">{ step.terminal.join('\n') }</pre>
+                                { step.terminal &&
+                                    <pre className="terminal">{ step.terminal.join('\n') }</pre>
+                                }
+                            </>
                         }
                     </div>
 

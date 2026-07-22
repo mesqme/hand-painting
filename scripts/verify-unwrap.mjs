@@ -96,6 +96,23 @@ for(const geometry of [ duck, column ])
     else ok(`${ name }: aPackOrder in 0-1`)
 }
 
+// The sheet layout must be the REAL authored unwrap: aUnwrapUv === uv1
+// exactly (duck + column were unwrapped together into one shared texture)
+for(const geometry of [ duck, column ])
+{
+    const name = geometry === duck ? 'duck' : 'column'
+    const unwrap = geometry.getAttribute('aUnwrapUv')
+    const uv1 = geometry.getAttribute('uv1')
+    let mismatches = 0
+    for(let i = 0; i < unwrap.count; i++)
+        if(Math.abs(unwrap.getX(i) - uv1.getX(i)) > 1e-6 || Math.abs(unwrap.getY(i) - uv1.getY(i)) > 1e-6)
+            mismatches++
+    if(mismatches)
+        problems.push(`${ name }: aUnwrapUv diverges from authored uv1 at ${ mismatches } corners`)
+    else
+        ok(`${ name }: aUnwrapUv matches authored uv1 exactly`)
+}
+
 // Line data builds and animates NaN-free
 const lineData = buildUvLineData(islandModel, 1.7)
 ok(`line data built: ${ lineData.geometry.getAttribute('position').count } points`)

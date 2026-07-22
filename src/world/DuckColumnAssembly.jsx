@@ -48,9 +48,11 @@ export default function DuckColumnAssembly()
         })
         const wireMaterial = createAssetMaterial({ wireframe: true, flatShade: true, opacity: 0.28 })
 
+        // Constant-width red lines — the color alone marks the seams (no
+        // thickness animation)
         const seamMaterial = new LineMaterial({
             color: COLORS.seam,
-            linewidth: 1.5,
+            linewidth: 2,
             transparent: true,
             opacity: 0,
         })
@@ -236,9 +238,8 @@ export default function DuckColumnAssembly()
         wireColumn.current.visible = wireOpacity > 0.002
         wireDuck.current.visible = wireOpacity > 0.002
 
-        // Seams for the bake act — red fat lines whose thickness animates
+        // Seams for the bake act — red lines, constant width
         seamMaterial.opacity = params.seamOpacity * params.heroOpacity
-        seamMaterial.linewidth = params.seamWidth
         seamMaterial.resolution.set(state.size.width, state.size.height)
         duckSeamLine.visible = seamMaterial.opacity > 0.002
         columnSeamLine.visible = seamMaterial.opacity > 0.002

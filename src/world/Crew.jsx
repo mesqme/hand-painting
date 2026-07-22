@@ -9,7 +9,7 @@ import { createShadowMaterial } from './materials/softShadow.js'
 import { ensureLibrary, textureLibrary } from './textureLibrary.js'
 import { clampFrameX } from '../ui/frameFit.js'
 import { params } from '../scroll/choreography.js'
-import { COLORS, ISO, ISO_SLOTS, isoSlotOffset, ROW_X, ROW_Y, ROW_SCALE } from '../config.js'
+import { COLORS, ISO, ISO_SLOTS, ISO_GRID_EXTENT, ISO_GRID_STEP, isoSlotOffset } from '../config.js'
 
 /**
  * The crew — the three non-hero members of the four-piece cast (the hero owns
@@ -17,16 +17,14 @@ import { COLORS, ISO, ISO_SLOTS, isoSlotOffset, ROW_X, ROW_Y, ROW_SCALE } from '
  * component serves four acts:
  *   03  standing on the grid in gradient look
  *   06  same scene, painted — the artist's context
- *   07  the whole crew glides into the frontal line-up for the atlas
+ *   07  everyone HOLDS their slot while the texture sheets fly off the models
  *   09  back on the grid as wireframes, then the combined texture applies
  *       and every creature comes alive
  */
-// row = final line-up slot; arc = depth bulge during the glide so members that
-// cross the hero's x-path pass at a different z instead of clipping through it
 const MEMBERS = [
-    { slot: 0, row: 2, entry: 1, animal: 'duck', rowYaw: 0.3, arc: 0.55 },
-    { slot: 2, row: 0, entry: 2, animal: 'knot', rowYaw: - 0.2, arc: 0 },
-    { slot: 3, row: 3, entry: 3, animal: 'torus', rowYaw: 0.2, arc: - 0.55 },
+    { slot: 0, entry: 1, animal: 'duck' },
+    { slot: 2, entry: 2, animal: 'knot' },
+    { slot: 3, entry: 3, animal: 'torus' },
 ]
 
 const easeOutBack = (t) =>
@@ -38,7 +36,6 @@ const easeOutBack = (t) =>
 
 const smooth = (t) => t * t * (3 - 2 * t)
 const clamp01 = (value) => Math.min(Math.max(value, 0), 1)
-const lerp = (a, b, t) => a + (b - a) * t
 
 export default function Crew()
 {
@@ -65,26 +62,17 @@ export default function Crew()
         const wireMaterial = createAssetMaterial({ wireframe: true, flatShade: true, opacity: 0 })
         const shadowMaterial = createShadowMaterial()
 
-        // Level-view floor grid on the iso XZ plane. The front corner (max +z,
-        // min -x) projects below the window, so segments are chamfered along
-        // the screen-horizontal line z - x = clip to keep the grid contained.
+        // Level-view floor grid on the iso XZ plane — a COMPLETE square (no
+        // chamfered corner): the whole scene is sized so it projects inside
+        // the window at every aspect (verify-geometry checks this).
         const gridMaterial = new THREE.LineBasicMaterial({ color: COLORS.ink, transparent: true, opacity: 0 })
         const points = []
-        const extent = 1.9
-        const step = 0.475
-        const clip = 1.7
+        const extent = ISO_GRID_EXTENT
+        const step = ISO_GRID_STEP
         for(let x = - extent; x <= extent + 0.001; x += step)
-        {
-            const zEnd = Math.min(extent, x + clip)
-            if(zEnd > - extent + 0.001)
-                points.push(x, 0, - extent, x, 0, zEnd)
-        }
+            points.push(x, 0, - extent, x, 0, extent)
         for(let z = - extent; z <= extent + 0.001; z += step)
-        {
-            const xStart = Math.max(- extent, z - clip)
-            if(xStart < extent - 0.001)
-                points.push(xStart, 0, z, extent, 0, z)
-        }
+            points.push(- extent, 0, z, extent, 0, z)
         const gridGeometry = new THREE.BufferGeometry()
         gridGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(points), 3))
 
@@ -119,8 +107,6 @@ export default function Crew()
         gridMaterial.opacity = params.frameOpacity * 0.3
         shadowMaterial.opacity = params.frameOpacity * 0.75
 
-        // Single ease from the tween drives the glide (matches the hero's tween)
-        const rowT = clamp01(params.crewRow)
         const crewOpacity = clamp01(params.crewVisible * 1.5)
         const wireOpacity = params.crewWire * crewOpacity
         wireMaterial.uniforms.uOpacity.value = wireOpacity
@@ -132,19 +118,17 @@ export default function Crew()
                 return
 
             /**
-             * Transform: level-view slot ↔ frontal row
+             * Transform: every member holds its level-view slot
              */
             const iso = isoSlotOffset(member.slot)
             const pop = easeOutBack(clamp01(params.crewVisible * 1.3 - index * 0.12))
 
-            const rowBob = Math.sin(elapsed * 1.1 + index * 1.9) * 0.045 * rowT
-            body.position.x = lerp(frameX + iso.x, ROW_X[member.row], rowT)
-            body.position.y = lerp(iso.y, ROW_Y + rowBob, rowT)
-            // Depth arc so crossing members pass the hero at a different z
-            body.position.z = lerp(iso.z, 0, rowT) + member.arc * Math.sin(Math.PI * rowT)
-            body.rotation.x = ISO.pitch * (1 - rowT)
-            body.rotation.y = lerp(ISO.yaw, member.rowYaw, rowT)
-            body.scale.setScalar(Math.max(lerp(ISO.scale, ROW_SCALE, rowT) * pop, 0.0001))
+            body.position.x = frameX + iso.x
+            body.position.y = iso.y
+            body.position.z = iso.z
+            body.rotation.x = ISO.pitch
+            body.rotation.y = ISO.yaw
+            body.scale.setScalar(Math.max(ISO.scale * pop, 0.0001))
 
             /**
              * Look: gradient → painted → (act 09) wireframe → applied. Solids
@@ -192,11 +176,11 @@ export default function Crew()
             }
 
             /**
-             * Shadow under this member's slot — fades away in row formation
+             * Shadow under this member's slot
              */
             const shadow = shadows.current[index]
             if(shadow)
-                shadow.scale.setScalar(Math.max(pop * (1 - rowT), 0.0001))
+                shadow.scale.setScalar(Math.max(pop, 0.0001))
         })
 
         // Hero slot shadow follows the hero's presence

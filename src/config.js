@@ -15,7 +15,7 @@ export const COLORS = {
  * Scroll layout
  */
 export const LAYOUT = {
-    sections: 9,
+    sections: 10,
     sectionVh: 170,
 }
 
@@ -64,24 +64,30 @@ export const WORLD = {
 export const ISO = {
     pitch: 0.6155,   // atan(1 / sqrt(2)) — the classic isometric elevation
     yaw: Math.PI / 4,
-    centerY: - 0.72,
-    scale: 0.55,
-    standHeight: 1.3 * 0.55,  // assembly bottom sits at -1.3 · scale
+    centerY: - 0.35, // scene raised so the grid's front corner clears the window bottom
+    scale: 0.5,
+    standHeight: 1.3 * 0.5,  // assembly bottom sits at -1.3 · scale
 }
+
+// Full (uncut) floor grid half-extent on the iso XZ plane — sized so the whole
+// square, front corner included, projects inside the scene window at every
+// aspect (see verify-geometry). No chamfering: the ground reads complete.
+export const ISO_GRID_EXTENT = 1.2
+export const ISO_GRID_STEP = 0.4
 
 // Even grid, no overlaps: front-left, front-right (HERO), back-left, back-right
 export const ISO_SLOTS = [
-    [ - 0.85, 0.85 ],
-    [ 0.85, 0.85 ],
-    [ - 0.85, - 0.85 ],
-    [ 0.85, - 0.85 ],
+    [ - 0.8, 0.8 ],
+    [ 0.8, 0.8 ],
+    [ - 0.8, - 0.8 ],
+    [ 0.8, - 0.8 ],
 ]
 
-// Act 07 line-up: the crew leaves the window and forms this frontal row
-export const ROW_X = [ - 2.7, - 0.9, 0.9, 2.7 ]
-export const ROW_Y = 0.3
-export const ROW_SCALE = 0.5
 export const HERO_SLOT = 1
+
+// Act 07 — the texture atlas docks on the right while the crew stays in the
+// scene window; the four sheets fly from the models onto these quadrants
+export const ATLAS_X = 2.35
 
 /**
  * Rotates an iso-local point (x, y, z) into world space: Rx(pitch) · Ry(yaw)
@@ -118,32 +124,34 @@ export function isoSlotOffset(slotIndex)
  */
 export const STEPS = [
     {
-        id: 'model',
-        kicker: '01 · Create the model',
-        title: 'Geometry that wants to be painted',
-        body: 'Every asset starts as balanced geometry — high-poly or low-poly, whatever the shot needs. What matters is topology that unwraps without a fight: even quads, sensible loops, no stretched corners.',
+        id: 'intro',
+        title: 'Hand-Painting\nfor Three.js',
+        body: 'A production texture pipeline.',
         side: 'right',
         hero: true,
     },
     {
+        id: 'model',
+        kicker: '01 · Create the model',
+        body: 'Model the asset with clean, even topology that unwraps easily. High-poly or low-poly — what matters is that it is ready to texture.',
+        side: 'right',
+    },
+    {
         id: 'palette',
         kicker: '02 · Gradient palette',
-        title: 'Color becomes a lookup',
-        body: 'The model is UV-unwrapped at full scale and every part is parked on a strip of one shared gradient palette. Nothing is baked yet — geometry and palette colors stay editable the whole time.',
+        body: 'Unwrap the model and lay every part on a shared gradient palette. This colors the model without baking anything, so geometry and colors stay editable.',
         side: 'left',
     },
     {
         id: 'scene',
         kicker: '03 · Test in the scene',
-        title: 'Into the level, early',
-        body: 'The gradient-mapped asset drops into the running scene next to its siblings. Layout, readability and palette balance get checked while everything is still cheap to change.',
+        body: 'Drop the gradient-mapped asset into the running scene next to its siblings and check scale, layout and palette balance early.',
         side: 'right',
     },
     {
         id: 'bake',
         kicker: '04 · Bake',
-        title: 'Cut, unwrap, bake it down',
-        body: 'Seams are cut along the model and the surface unfolds into real UV islands. The gradient look bakes down onto the new layout — one texture that captures the palette exactly as the scene saw it.',
+        body: 'Cut seams, unwrap into real UV islands, and bake the gradient down onto that layout — one texture per asset.',
         side: 'left',
         // The bake sweep + skin return play late in the section — keep the card up for them
         cardOut: 0.85,
@@ -151,30 +159,26 @@ export const STEPS = [
     {
         id: 'paint',
         kicker: '05 · Hand paint',
-        title: 'Repainted in Photoshop',
-        body: 'The baked sheet goes to the artist. In Photoshop every gradient strip becomes brushwork — and when the file comes back, the texture and the model wear it together.',
+        body: 'Send the baked texture to the artist. They repaint it in Photoshop and the model wears the result.',
         side: 'left',
     },
     {
         id: 'artist',
-        kicker: '06 · Live loop',
-        title: 'Drop it into the running scene',
-        body: 'The artist gets a link to the running scene with an upload overlay. Drag a repainted file in — the model updates instantly, in context, next to its neighbours. Correct, save, drop again.',
-        hint: 'This part is real — drag a swatch into the scene, or drop any PNG.',
+        kicker: '06 · Live updates',
+        body: 'The artist gets a link to the running scene. Pick a repainted texture from the dropdown next to the model and it updates instantly, in context, next to its neighbours.',
+        hint: 'This part is real — pick a texture from the dropdown, or drop any PNG.',
         side: 'right',
     },
     {
         id: 'atlas',
         kicker: '07 · Combine',
-        title: 'Four sheets, one atlas',
-        body: 'Painted textures come back one per asset. Past sixteen textures the renderer gets grumpy, so before shipping they are packed into a single atlas — one sheet, one material.',
+        body: 'Pack the finished textures into one atlas, so the whole set ships as a single sheet and material.',
         side: 'left',
     },
     {
         id: 'ktx',
         kicker: '08 · Compress',
-        title: 'PNG out, KTX2 in',
-        body: 'The atlas is transcoded to KTX2 — GPU-native, mip-mapped, a fraction of the size. One script covers every platform.',
+        body: 'Transcode the atlas to KTX2 — GPU-native, mipmapped, and a fraction of the size. One script per platform.',
         side: 'left',
         terminal: [
             '$ gltf-transform uastc scene.glb scene.ktx2.glb',
@@ -189,8 +193,7 @@ export const STEPS = [
     {
         id: 'batch',
         kicker: '09 · Batch',
-        title: 'One draw call',
-        body: 'Different geometry, different paint — same atlas, same material. The whole shelf is merged into a single BatchedMesh and rendered in one draw call.',
+        body: 'Different geometry, different paint, one atlas and one material — merged into a single draw call.',
         side: 'left',
     },
 ]

@@ -4,19 +4,30 @@ import { useFrame } from '@react-three/fiber'
 import { useTexture } from '@react-three/drei'
 
 import { ensureLibrary, textureLibrary } from './textureLibrary.js'
+import { clampFrameX } from '../ui/frameFit.js'
 import { params } from '../scroll/choreography.js'
-import { COLORS, ROW_X, WORLD } from '../config.js'
+import { COLORS, ATLAS_X, isoSlotOffset, WORLD } from '../config.js'
 
 /**
- * Acts 07-09 — the texture side of the combine story. Four sheets appear
- * beneath the crew's line-up, fly into a single 2×2 atlas, compress into a
+ * Acts 07-09 — the texture side of the combine story. The crew never leaves
+ * the scene window: each member's texture sheet appears UPON its model, the
+ * four sheets fly into a single 2×2 atlas docked right, compress into a
  * stamped KTX2 chip, and in act 09 the chip carries the combined texture into
  * the scene window where it applies to the whole crew.
  */
 const ATLAS_Y = 0.08
-const SHEET_START_SIZE = 0.62
+const SHEET_START_SIZE = 0.5
 const SHEET_END_SIZE = 0.88
 const QUADRANTS = [ [ - 0.44, 0.44 ], [ 0.44, 0.44 ], [ - 0.44, - 0.44 ], [ 0.44, - 0.44 ] ]
+
+// Which crew slot each quadrant's sheet lifts off from, and the texture that
+// model wears at the end of act 06 (duck warm, hero dusk, knot moss, torus dusk)
+const SHEET_SOURCES = [
+    { slot: 0, entry: 1 },
+    { slot: 1, entry: 3 },
+    { slot: 2, entry: 2 },
+    { slot: 3, entry: 3 },
+]
 
 const smooth = (t) => t * t * (3 - 2 * t)
 const clamp01 = (value) => Math.min(Math.max(value, 0), 1)
@@ -35,12 +46,9 @@ export default function AtlasCombine()
     {
         ensureLibrary(gradientTexture)
 
-        // Each sheet must show the texture the crew member above it wears, keyed
-        // by ROW_X occupant: [knot moss, hero warm, duck warm, torus dusk]
-        const SHEET_ENTRIES = [ 2, 1, 1, 3 ]
-        const sheetMaterials = SHEET_ENTRIES.map((entryIndex) =>
+        const sheetMaterials = SHEET_SOURCES.map((source) =>
         {
-            const entry = textureLibrary.entries[entryIndex]
+            const entry = textureLibrary.entries[source.entry]
             return new THREE.MeshBasicMaterial({ map: entry.texture, transparent: true, opacity: 0 })
         })
         const stampMaterial = new THREE.MeshBasicMaterial({ map: makeStampTexture(), transparent: true })
@@ -50,8 +58,6 @@ export default function AtlasCombine()
 
     useFrame((state) =>
     {
-        const elapsed = state.clock.elapsedTime
-
         const chipToCrew = smooth(clamp01(params.chipToCrew))
         const sheetOpacity = clamp01(params.sheetsIn * 1.5) * (1 - smooth(clamp01((params.chipToCrew - 0.55) / 0.45)))
 
@@ -59,35 +65,46 @@ export default function AtlasCombine()
         if(!group.current.visible)
             return
 
-        // Sheets fly from under each crew member into the 2×2 atlas
+        // Right dock for the atlas, clamped on-screen like the palette sheet
+        const fit = THREE.MathUtils.clamp(state.viewport.aspect / 1.72, 0.6, 1)
+        const halfVisible = (state.viewport.width / 2) / fit
+        const atlasX = Math.min(ATLAS_X, halfVisible - 1.0)
+
+        /**
+         * Atlas → KTX2 chip; in act 09 it flies into the scene window to
+         * deliver the combined texture. The sheet/atlas stays STABLE (no idle
+         * float) — it's a 2D texture, not a floating 3D object.
+         */
+        const chip = smooth(clamp01(params.atlasChip))
+
+        const chipScale = (1 - 0.58 * chip) * (1 - 0.45 * chipToCrew)
+        atlas.current.scale.setScalar(Math.max(chipScale, 0.0001))
+        atlas.current.position.x = lerp(lerp(atlasX, 0.85, chip), WORLD.zooFrameX, chipToCrew)
+        atlas.current.position.y = ATLAS_Y - 0.25 * chipToCrew
+        atlas.current.rotation.z = 0
+
+        // Sheets lift off the models (which HOLD their scene-window slots) and
+        // fly into the 2×2 atlas. Start poses are world-space model centers
+        // converted into atlas-local space.
+        const frameX = clampFrameX(params.frameX)
         sheets.current.forEach((sheet, index) =>
         {
             if(!sheet)
                 return
 
             const fly = smooth(clamp01((params.atlasFly * 1.18 - index * 0.06)))
-            const startX = ROW_X[index]
-            const startY = - 1.05 - ATLAS_Y
+            const iso = isoSlotOffset(SHEET_SOURCES[index].slot)
+            const startX = frameX + iso.x - atlas.current.position.x
+            const startY = iso.y - atlas.current.position.y
+            const startZ = iso.z + 0.4 - 0.55
             const [ endX, endY ] = QUADRANTS[index]
 
             sheet.position.x = startX + (endX - startX) * fly
             sheet.position.y = startY + (endY - startY) * fly
+            sheet.position.z = startZ * (1 - fly)
             sheet.scale.setScalar(SHEET_START_SIZE + (SHEET_END_SIZE - SHEET_START_SIZE) * fly)
             sheetMaterials[index].opacity = sheetOpacity
         })
-
-        /**
-         * Atlas → KTX2 chip; once compact it floats, and in act 09 it flies
-         * into the scene window to deliver the combined texture
-         */
-        const chip = smooth(clamp01(params.atlasChip))
-        const idle = Math.max(chip, smooth(clamp01(params.atlasFly)))
-
-        const chipScale = (1 - 0.58 * chip) * (1 - 0.45 * chipToCrew)
-        atlas.current.scale.setScalar(Math.max(chipScale, 0.0001))
-        atlas.current.position.x = lerp(chip * 0.85, WORLD.zooFrameX, chipToCrew)
-        atlas.current.position.y = ATLAS_Y + Math.sin(elapsed * 0.9) * 0.05 * idle * (1 - chipToCrew) - 0.25 * chipToCrew
-        atlas.current.rotation.z = (Math.sin(elapsed * 0.55) * 0.05 - 0.03) * idle
 
         const stampPop = clamp01((params.atlasChip - 0.62) / 0.38)
         stamp.current.scale.setScalar(Math.max(stampPop, 0.0001))

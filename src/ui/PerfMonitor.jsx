@@ -46,7 +46,7 @@ export default function PerfMonitor()
     }, [])
 
     return (
-        <aside className={ `perf ${ step === 8 ? 'is-visible' : '' }` }>
+        <aside className={ `perf ${ step === 9 ? 'is-visible' : '' }` }>
             <p className="perf-title">perf monitor</p>
 
             <div className="perf-main">

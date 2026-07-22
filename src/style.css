@@ -195,22 +195,16 @@ body
 /**
  * Typography
  */
+/* One header per section: the numbered kicker at full title size (the
+   duplicate plain-title line below it was removed) */
 .kicker
 {
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 14px;
-}
-
-.title
-{
-    font-size: 30px;
+    font-size: 28px;
     font-weight: 500;
     line-height: 1.15;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
     margin-bottom: 13px;
 }
 
@@ -302,140 +296,129 @@ body
 }
 
 /**
- * Texture tray
+ * Texture dropdown (act 06) — docked next to the model inside the scene
+ * window; opacity/position/open-state driven per frame from choreography
  */
-.tray
+.dropdown
 {
     position: fixed;
-    left: 7vw;
-    bottom: 6vh;
+    left: 0;
+    top: 0;
     z-index: 5;
+    width: 190px;
     opacity: 0;
     visibility: hidden;
-    transform: translateY(16px);
-    transition: opacity 0.45s ease, transform 0.45s ease, visibility 0.45s;
-    pointer-events: none;
-}
-
-.tray.is-visible
-{
-    opacity: 1;
-    visibility: visible;
-    transform: none;
     pointer-events: auto;
+    will-change: transform, opacity;
 }
 
-.tray-title
+.dropdown-title
 {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.28em;
     text-transform: uppercase;
     color: var(--ink-soft);
-    margin-bottom: 9px;
+    margin-bottom: 6px;
 }
 
-.tray-row
+.dropdown-header
 {
     display: flex;
-    align-items: flex-start;
-    gap: 10px;
-}
-
-.swatch
-{
-    display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    width: 100%;
     background: var(--card);
-    border: 1px solid rgba(59, 58, 56, 0.14);
-    border-radius: 10px;
-    padding: 6px 8px 7px;
-    width: 86px;
+    border: 1px solid rgba(59, 58, 56, 0.25);
+    border-radius: 9px;
+    padding: 7px 9px;
     font-family: inherit;
-    cursor: grab;
-    user-select: none;
-    touch-action: none;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    cursor: pointer;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.14);
+    transition: border-color 0.2s ease;
 }
 
-.swatch:hover
-{
-    transform: translateY(-3px);
-    border-color: rgba(59, 58, 56, 0.3);
-}
-
-.swatch.is-active
+.dropdown-header:hover
 {
     border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent);
 }
 
-.swatch-thumb
+.dropdown-caret
 {
-    width: 70px;
-    height: 48px;
-    border-radius: 7px;
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--ink-soft);
+}
+
+.dropdown-list
+{
+    margin-top: 5px;
+    background: var(--card);
+    border: 1px solid rgba(59, 58, 56, 0.2);
+    border-radius: 9px;
+    padding: 4px;
+    box-shadow: 0 16px 38px rgba(0, 0, 0, 0.18);
+    transform-origin: top;
+    transform: scaleY(0);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.dropdown-option
+{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    padding: 6px 7px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.dropdown-option:hover,
+.dropdown-option.is-scanned
+{
+    background: rgba(231, 138, 46, 0.18);
+}
+
+.dropdown-option.is-active .dropdown-label
+{
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.dropdown-thumb
+{
+    width: 30px;
+    height: 22px;
+    border-radius: 5px;
     background-size: cover;
     background-position: center;
     flex-shrink: 0;
 }
 
-.swatch-label
+.dropdown-label
 {
-    font-size: 11px;
+    font-size: 12px;
     letter-spacing: 0.03em;
     color: var(--ink-soft);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 76px;
 }
 
-.tray-note
+.dropdown-note
 {
-    margin-top: 9px;
-    font-size: 11.5px;
+    margin-top: 7px;
+    font-size: 10.5px;
     line-height: 1.5;
     letter-spacing: 0.04em;
     color: var(--ink-soft);
     opacity: 0.72;
-}
-
-.drag-ghost
-{
-    position: fixed;
-    left: -30px;
-    top: -30px;
-    z-index: 20;
-    pointer-events: none;
-}
-
-.drag-ghost span
-{
-    display: block;
-    width: 58px;
-    height: 58px;
-    border-radius: 11px;
-    background-size: cover;
-    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
-}
-
-/* Scripted artist-demo ghost (act 06) — driven per frame from choreography */
-.demo-ghost
-{
-    position: fixed;
-    left: -29px;
-    top: -29px;
-    z-index: 20;
-    width: 58px;
-    height: 58px;
-    border-radius: 11px;
-    background-size: cover;
-    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
-    opacity: 0;
-    pointer-events: none;
 }
 
 /* Cards that sit over a scene window get a soft chip so text stays readable */
@@ -528,6 +511,6 @@ body
     .card { width: 80vw; }
     .step--right .card { margin-right: 8vw; }
     .hero-title { font-size: 56px; }
-    .tray { width: 170px; left: 6vw; }
+    .dropdown { width: 160px; }
     .perf { right: 14px; top: 14px; }
 }

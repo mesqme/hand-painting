@@ -1,6 +1,7 @@
-// Headless geometric verification of the iteration-5 fixes (grid containment,
-// row-crossing separation) — since the browser pane is unavailable.
-import { ISO, ISO_SLOTS, isoPoint, isoSlotOffset, ROW_X, ROW_Y, ROW_SCALE, HERO_SLOT } from '../src/config.js'
+// Headless geometric verification of the level-view / scene-window fit —
+// since the browser pane is unavailable. Checks that NOTHING inside the fake
+// canvas (grid, models, shadows) pokes past its borders.
+import { ISO, ISO_SLOTS, ISO_GRID_EXTENT, isoPoint, isoSlotOffset } from '../src/config.js'
 
 const problems = []
 const ok = (m) => console.log('  ok —', m)
@@ -11,9 +12,12 @@ const CAM_Y = 0.1
 const CAM_Z = 8.6
 const tanHalf = Math.tan((FOV / 2) * Math.PI / 180)
 
-// Window bottom border in NDC. Window is 72vh tall, top:50%, translateY(-52%):
+// Window borders in NDC. Window is 72vh tall, top:50%, translateY(-52%):
 // bottom fraction-from-top = 0.5 - 0.52·0.72 + 0.72 = 0.8456; NDC = 1 - 2·frac
 const WINDOW_BOTTOM_NDC = 1 - 2 * (0.5 - 0.52 * 0.72 + 0.72)   // = -0.6912
+const WINDOW_TOP_NDC = 1 - 2 * (0.5 - 0.52 * 0.72)             // =  0.7488
+
+const ASPECTS = [ 1.0, 1.33, 1.6, 1.777, 2.0, 2.4 ]
 
 function projectNDCy(worldY, aspect)
 {
@@ -23,97 +27,79 @@ function projectNDCy(worldY, aspect)
 }
 
 /**
- * 1. Grid containment — replicate Crew's chamfered grid, project every vertex
+ * 1. Grid containment — the FULL square grid (no chamfer), all four corners
  */
-const extent = 1.9
-const step = 0.475
-const clip = 1.7
-const gridPts = []
-for(let x = - extent; x <= extent + 0.001; x += step)
-{
-    const zEnd = Math.min(extent, x + clip)
-    if(zEnd > - extent + 0.001) gridPts.push([ x, - extent ], [ x, zEnd ])
-}
-for(let z = - extent; z <= extent + 0.001; z += step)
-{
-    const xStart = Math.max(- extent, z - clip)
-    if(xStart < extent - 0.001) gridPts.push([ xStart, z ], [ extent, z ])
-}
+const corners = []
+for(const gx of [ - ISO_GRID_EXTENT, ISO_GRID_EXTENT ])
+    for(const gz of [ - ISO_GRID_EXTENT, ISO_GRID_EXTENT ])
+        corners.push([ gx, gz ])
 
-for(const aspect of [ 1.0, 1.6, 1.777, 2.0 ])
+for(const aspect of ASPECTS)
 {
     let lowest = Infinity
-    for(const [ gx, gz ] of gridPts)
+    for(const [ gx, gz ] of corners)
     {
         const p = isoPoint(gx, 0, gz)
-        const worldY = ISO.centerY + p.y
-        lowest = Math.min(lowest, projectNDCy(worldY, aspect))
+        lowest = Math.min(lowest, projectNDCy(ISO.centerY + p.y, aspect))
     }
-    if(lowest < WINDOW_BOTTOM_NDC - 0.001)
-        problems.push(`grid front edge NDC ${ lowest.toFixed(3) } below window bottom ${ WINDOW_BOTTOM_NDC.toFixed(3) } at aspect ${ aspect }`)
+    if(lowest < WINDOW_BOTTOM_NDC + 0.02)
+        problems.push(`grid front corner NDC ${ lowest.toFixed(3) } below window bottom ${ WINDOW_BOTTOM_NDC.toFixed(3) } at aspect ${ aspect }`)
     else
-        ok(`grid contained at aspect ${ aspect } (lowest NDC ${ lowest.toFixed(3) } ≥ ${ WINDOW_BOTTOM_NDC.toFixed(3) })`)
+        ok(`full grid contained at aspect ${ aspect } (lowest NDC ${ lowest.toFixed(3) } ≥ ${ WINDOW_BOTTOM_NDC.toFixed(3) })`)
 }
 
 /**
- * 2. Iso slots don't overlap on screen (screen-space centre distances)
+ * 2. Model containment — every slot's assembly top (plus float/bob headroom)
+ *    under the window top, every bottom above the window bottom
+ */
+for(const aspect of ASPECTS)
+{
+    let maxTop = - Infinity
+    let minBottom = Infinity
+    for(let slot = 0; slot < 4; slot++)
+    {
+        const offset = isoSlotOffset(slot)
+        // Assembly spans ±1.3·scale around its center; +0.12·scale headroom
+        // covers the duck float and hero bob
+        maxTop = Math.max(maxTop, projectNDCy(offset.y + 1.42 * ISO.scale, aspect))
+        minBottom = Math.min(minBottom, projectNDCy(offset.y - 1.3 * ISO.scale, aspect))
+    }
+    if(maxTop > WINDOW_TOP_NDC - 0.02)
+        problems.push(`model top NDC ${ maxTop.toFixed(3) } above window top ${ WINDOW_TOP_NDC.toFixed(3) } at aspect ${ aspect }`)
+    else if(minBottom < WINDOW_BOTTOM_NDC + 0.02)
+        problems.push(`model bottom NDC ${ minBottom.toFixed(3) } below window bottom ${ WINDOW_BOTTOM_NDC.toFixed(3) } at aspect ${ aspect }`)
+    else
+        ok(`models contained at aspect ${ aspect } (top ${ maxTop.toFixed(3) } ≤ ${ WINDOW_TOP_NDC.toFixed(3) }, bottom ${ minBottom.toFixed(3) } ≥ ${ WINDOW_BOTTOM_NDC.toFixed(3) })`)
+}
+
+/**
+ * 3. Iso slots don't overlap on screen (screen-space centre distances)
  */
 function screenXY(offset, aspect)
 {
     const fit = Math.min(Math.max(aspect / 1.72, 0.6), 1)
-    return [ offset.x * fit, (ISO.centerY + offset.y) * fit ]
+    return [ offset.x * fit, offset.y * fit ]
 }
 const slotScreens = ISO_SLOTS.map((_, i) => screenXY(isoSlotOffset(i), 1.777))
 let minSlot = Infinity
 for(let a = 0; a < 4; a++)
     for(let b = a + 1; b < 4; b++)
         minSlot = Math.min(minSlot, Math.hypot(slotScreens[a][0] - slotScreens[b][0], slotScreens[a][1] - slotScreens[b][1]))
-// Assembly screen footprint radius ≈ 1.15 half-width · scale 0.55 ≈ 0.63/2
-if(minSlot < 0.7)
+// Assembly screen footprint radius ≈ 1.15 half-width · scale 0.5 ≈ 0.58/2
+if(minSlot < 0.62)
     problems.push(`iso slots too close on screen: min centre distance ${ minSlot.toFixed(2) }`)
 else
     ok(`iso slots well separated (min screen distance ${ minSlot.toFixed(2) })`)
 
 /**
- * 3. Row-formation crossing — simulate the real eased paths, hero vs members
+ * 4. Contact shadows stay on the grid (shadow plane reaches ±0.31 in z)
  */
-const MEMBERS = [
-    { slot: 0, row: 2, arc: 0.55 },
-    { slot: 2, row: 0, arc: 0 },
-    { slot: 3, row: 3, arc: - 0.55 },
-]
-const power2InOut = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(- 2 * t + 2, 2) / 2
-
-// Hero glides iso slot-1 → row (both power2.inOut in the timeline)
-const heroFrom = isoSlotOffset(HERO_SLOT)
-const heroTo = { x: ROW_X[HERO_SLOT], y: ROW_Y, z: 0 }
-const FRAME = WORLD_artist()
-function WORLD_artist() { return - 0.2 }  // artist frame; row happens as frame fades — use 0 shift after clamp on landscape
-
-let minPair = Infinity
-for(let s = 0; s <= 1.001; s += 0.02)
+for(const [ sx, sz ] of ISO_SLOTS)
 {
-    const rowT = power2InOut(Math.min(s, 1))
-    const hero = {
-        x: heroFrom.x + (heroTo.x - heroFrom.x) * rowT,
-        y: heroFrom.y + (heroTo.y - heroFrom.y) * rowT,
-        z: heroFrom.z + (heroTo.z - heroFrom.z) * rowT,
-    }
-    for(const m of MEMBERS)
-    {
-        const iso = isoSlotOffset(m.slot)
-        const body = {
-            x: iso.x + (ROW_X[m.row] - iso.x) * rowT,
-            y: iso.y + (ROW_Y - iso.y) * rowT,
-            z: iso.z + (0 - iso.z) * rowT + m.arc * Math.sin(Math.PI * rowT),
-        }
-        minPair = Math.min(minPair, Math.hypot(hero.x - body.x, hero.y - body.y, hero.z - body.z))
-    }
+    if(Math.abs(sx) + 0.58 > ISO_GRID_EXTENT + 0.35 || Math.abs(sz) + 0.31 > ISO_GRID_EXTENT + 0.35)
+        problems.push(`slot (${ sx }, ${ sz }) shadow spills far off the grid`)
 }
-if(minPair < 0.7)
-    problems.push(`row crossing min hero-member distance ${ minPair.toFixed(3) } (assemblies would clip)`)
-else
-    ok(`row crossing clears (min hero-member distance ${ minPair.toFixed(3) })`)
+ok('contact shadows sit on (or near) the grid')
 
 console.log()
 if(problems.length)

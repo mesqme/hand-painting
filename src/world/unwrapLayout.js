@@ -154,24 +154,32 @@ export function buildIslandModel(geometries)
     }
 
     /**
-     * Finalize island metrics + one global pack order (the act-02 lockstep)
+     * The layout is uv1 AS AUTHORED — duck and column were unwrapped TOGETHER
+     * into one shared texture that fills the whole 0-1 space, so the sheet
+     * shows the real islands exactly where the baked/painted texture has them.
+     * No re-packing, no per-mesh rescaling.
+     */
+
+    /**
+     * Finalize island metrics (in uv1 space) + one global order (act-02 lockstep)
      */
     for(const island of allIslands)
     {
         island.uv0c = [ island.sumU0 / island.count, island.sumV0 / island.count ]
         island.uv1c = [ island.sumU1 / island.count, island.sumV1 / island.count ]
+        island.pc = island.uv1c
         const extent = Math.max(island.maxU1 - island.minU1, island.maxV1 - island.minV1, 0.0001)
         island.endScale = Math.min(0.035 / extent, 1)
     }
 
-    const sorted = [...allIslands].sort((a, b) => (a.uv1c[0] - b.uv1c[0]) || (b.uv1c[1] - a.uv1c[1]))
+    const sorted = [...allIslands].sort((a, b) => (a.pc[0] - b.pc[0]) || (b.pc[1] - a.pc[1]))
     sorted.forEach((island, index) =>
     {
         island.order = allIslands.length > 1 ? index / (allIslands.length - 1) : 0
     })
 
     /**
-     * Pass 2 — attributes (aUnwrapUv = uv1, aPackOrder) + outline segments
+     * Pass 2 — attributes (aUnwrapUv = raw uv1, aPackOrder) + outlines
      */
     for(const geometry of geometries)
     {
@@ -180,7 +188,6 @@ export function buildIslandModel(geometries)
         const unwrapArray = new Float32Array(cornerCount * 2)
         const orderArray = new Float32Array(cornerCount)
 
-        // aUnwrapUv is uv1 verbatim; order is written per island below
         for(let c = 0; c < cornerCount; c++)
         {
             unwrapArray[c * 2 + 0] = uv1.getX(c)
@@ -204,16 +211,16 @@ export function buildIslandModel(geometries)
         const uv1 = geometry.attributes.uv1
         for(const { ci, cj, island } of boundaryEdges)
         {
-            const wi = [ uv1.getX(ci), uv1.getY(ci) ]
-            const wj = [ uv1.getX(cj), uv1.getY(cj) ]
+            const pi = [ uv1.getX(ci), uv1.getY(ci) ]
+            const pj = [ uv1.getX(cj), uv1.getY(cj) ]
             outlineSegments.push({
-                // Full unwrap pose (uv1), and the shrink onto the uv0 strip
-                layout: [ wi[0], wi[1], wj[0], wj[1] ],
+                // Real uv1 pose, and the shrink onto the uv0 gradient strip
+                layout: [ pi[0], pi[1], pj[0], pj[1] ],
                 strip: [
-                    island.uv0c[0] + (wi[0] - island.uv1c[0]) * island.endScale,
-                    island.uv0c[1] + (wi[1] - island.uv1c[1]) * island.endScale,
-                    island.uv0c[0] + (wj[0] - island.uv1c[0]) * island.endScale,
-                    island.uv0c[1] + (wj[1] - island.uv1c[1]) * island.endScale,
+                    island.uv0c[0] + (pi[0] - island.pc[0]) * island.endScale,
+                    island.uv0c[1] + (pi[1] - island.pc[1]) * island.endScale,
+                    island.uv0c[0] + (pj[0] - island.pc[0]) * island.endScale,
+                    island.uv0c[1] + (pj[1] - island.pc[1]) * island.endScale,
                 ],
                 order: island.order,
             })
