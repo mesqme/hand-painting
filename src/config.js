@@ -15,8 +15,8 @@ export const COLORS = {
  * Scroll layout
  */
 export const LAYOUT = {
-    sections: 11,
-    scrollUnits: 13,
+    sections: 10,
+    scrollUnits: 13.8,
     sectionVh: 170,
 }
 
@@ -127,6 +127,7 @@ export const STEPS = [
     {
         id: 'intro',
         at: 0,
+        outAt: 0.08,
         title: 'Hand-Painting\nfor Three.js',
         body: 'A production texturing pipeline',
         side: 'right',
@@ -134,15 +135,15 @@ export const STEPS = [
     },
     {
         id: 'model',
-        at: 0.2,
-        outAt: 0.66,
+        at: 0.34,
+        outAt: 0.68,
         kicker: '01 · Model Preparation',
         body: 'Create balanced geometry with clean topology for good UV unwrapping. Remove hidden polygons.',
         side: 'right',
     },
     {
         id: 'palette',
-        at: 0.76,
+        at: 0.86,
         kicker: '02 · Apply Gradient Palette',
         body: 'Place each part of the model on a shared gradient palette. Geometry and colors remain editable before anything is baked.',
         side: 'left',
@@ -165,42 +166,36 @@ export const STEPS = [
     {
         id: 'paint',
         at: 6.12,
-        kicker: '05 · Hand paint',
+        kicker: '05 · Hand painting',
         body: 'The baked texture becomes the main working file. The artist repaints it in Photoshop.',
         side: 'left',
     },
     {
         id: 'artist',
         at: 6.98,
-        kicker: '06 · Test in the scene 2.0',
-        body: 'The artist opens the Three.js experience and uploads the texture in the scene.',
+        kicker: '06 · Test in the scene',
+        body: 'We prepare the interface for the artist, so it is easy to drag and drop textures directly in the scene without any code interactions. Such testing avoids any color mismatch.',
         side: 'left',
     },
     {
         id: 'atlas',
         at: 8.34,
-        kicker: '07 · Combine',
-        body: 'Show each painted texture over its matching object, then move the four square textures into one combined atlas.',
-        side: 'left',
-    },
-    {
-        id: 'ktx',
-        at: 9.18,
-        kicker: '08 · Compress',
-        body: 'Compress the combined atlas to KTX2 while keeping the result visible inside the scene.',
+        outAt: 9.52,
+        kicker: '07 · Textures Optimization',
+        body: 'Avoid having too many separated textures. Combine multiple textures into one square texture, then compress it to KTX2.',
         side: 'left',
     },
     {
         id: 'batch',
         at: 9.72,
         outAt: 12.56,
-        kicker: '09 · Batched mesh',
+        kicker: '08 · Batched mesh',
         body: 'Reuse the batch color attribute as compact per-instance data. The red channel identifies each geometry and retrieves its UV transform from the atlas.',
         side: 'left',
     },
     {
         id: 'final',
-        at: 12.62,
+        at: 13.2,
         kicker: 'edclub was here',
         body: 'Hand-Painting for Three.js',
         side: 'left',

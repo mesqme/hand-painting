@@ -103,7 +103,11 @@ export default function Sections()
                                 <p className="hero-tagline">{ step.body }</p>
                             </header>
                             : <>
-                                <h2 className="kicker">{ step.kicker }</h2>
+                                <h2 className="kicker">
+                                    { step.id === 'final'
+                                        ? <><span className="final-accent">edclub</span> was here</>
+                                        : step.kicker }
+                                </h2>
                                 <p className="body">{ step.body }</p>
 
                                 { step.hint && <p className="hint">{ step.hint }</p> }

@@ -221,6 +221,7 @@ body
 .step--artist .card { top: 16vh; }
 .step--atlas .card { top: 10vh; }
 .step--batch .card { top: 12vh; }
+.step--atlas { height: 340vh; }
 
 .step--final .card
 {
@@ -242,6 +243,11 @@ body
     line-height: 0.96;
     letter-spacing: 0.01em;
     text-transform: none;
+}
+
+.final-accent
+{
+    color: var(--accent);
 }
 
 .step--final .body
@@ -589,9 +595,9 @@ body
     z-index: 7;
     left: 50%;
     top: 73vh;
-    width: min(310px, 76vw);
+    width: min(390px, 82vw);
     transform: translateX(-50%);
-    padding: 13px 16px 14px;
+    padding: 16px 19px 17px;
     border: 1px solid var(--hairline);
     border-left: 3px solid var(--accent);
     border-radius: 11px;
@@ -625,7 +631,7 @@ body
 .process-note-title
 {
     color: var(--ink);
-    font-size: 17px;
+    font-size: clamp(20px, 1.55vw, 24px);
     font-weight: 600;
     line-height: 1.2;
 }
@@ -634,8 +640,8 @@ body
 {
     margin-top: 4px;
     color: var(--ink-soft);
-    font-size: 13px;
-    line-height: 1.4;
+    font-size: clamp(15px, 1.05vw, 17px);
+    line-height: 1.45;
 }
 
 /**

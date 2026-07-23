@@ -257,11 +257,9 @@ export function buildChoreography()
         duration: 0.4,
     }, 5.72)
     tl.to(params, { noteOpacity: 0, duration: 0.12, ease: 'power1.in' }, 6)
-    tl.set(params, { paintPhase: 2, noteOpacity: 0 }, 6.14)
-    tl.to(params, { noteOpacity: 1, duration: 0.12, ease: 'power1.out' }, 6.14)
+    tl.set(params, { paintPhase: 0, noteOpacity: 0 }, 6.14)
     tl.to(params, { sheetPaint: 1, duration: 0.5, ease: 'power1.inOut' }, 6.15)
     tl.to(params, { reveal: 1, duration: 0.5, ease: 'power1.inOut' }, 6.15)
-    tl.to(params, { noteOpacity: 0, duration: 0.16, ease: 'power1.in' }, 6.56)
 
     /**
      * 05 → 06 — the hero is already on the right, so it settles gently into
@@ -369,7 +367,7 @@ export function buildChoreography()
         duration: 0.24,
     }, 12.58)
     tl.set(params, { batchPhase: 0, ktxPhase: 0, noteOpacity: 0 }, 12.62)
-    tl.to(params, { finalVisible: 1, duration: 0.34, ease: 'power2.inOut' }, 12.62)
+    tl.to(params, { finalVisible: 1, duration: 0.3, ease: 'power2.inOut' }, 12.82)
 
     // Pin the timeline length to the exact scroll span.
     tl.set(params, { finalVisible: 1 }, SCROLL_END)

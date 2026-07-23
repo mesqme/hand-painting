@@ -2,10 +2,8 @@ import { useEffect, useRef } from 'react'
 import gsap from 'gsap'
 
 import { params } from '../scroll/choreography.js'
-import { frameFit } from './frameFit.js'
+import { frameFit, clampFrameX } from './frameFit.js'
 import {
-    ATLAS_X,
-    ATLAS_Y,
     ATLAS_DOCK_X,
     ATLAS_DOCK_Y,
     WORLD,
@@ -20,7 +18,6 @@ const BAKE_NOTES = [
 const PAINT_NOTES = [
     null,
     { title: 'Moving to Photoshop', detail: 'Or use any comfortable software for painting.' },
-    { title: 'Paint the baked texture', detail: 'Paint the 2D sheet and check the same update on the model.' },
 ]
 
 const KTX_NOTES = [
@@ -45,8 +42,6 @@ const smooth = (value) =>
     const t = Math.min(Math.max(value, 0), 1)
     return t * t * (3 - 2 * t)
 }
-const lerp = (a, b, t) => a + (b - a) * t
-
 export default function ProcessNotes()
 {
     const root = useRef()
@@ -119,14 +114,32 @@ export default function ProcessNotes()
 
             if(mode === 'batch')
             {
-                element.style.left = 'clamp(4vw, calc(50vw - 400px - 21.5vh), 12vw)'
-                element.style.top = '43vh'
-                element.style.transform = 'none'
+                const phase = Math.round(params.batchPhase)
+                const { pxPerUnit } = frameFit()
+                const frameCenter = window.innerWidth / 2 + clampFrameX(params.frameX) * pxPerUnit
+
+                if(phase === 3)
+                {
+                    const perf = document.querySelector('.perf')
+                    const rect = perf?.getBoundingClientRect()
+                    element.style.left = `${ rect ? rect.left + rect.width / 2 : frameCenter }px`
+                    element.style.top = `${ rect ? rect.bottom + 12 : window.innerHeight * 0.32 }px`
+                    element.style.width = 'min(360px, 82vw)'
+                }
+                else
+                {
+                    element.style.left = `${ frameCenter }px`
+                    element.style.top = `${ window.innerHeight / 2 + pxPerUnit * 1.18 }px`
+                    element.style.width = 'min(430px, 70vw)'
+                }
+
+                element.style.transform = 'translateX(-50%)'
                 element.style.opacity = noteOpacity
                 element.style.visibility = noteOpacity > 0.002 ? 'visible' : 'hidden'
                 return
             }
 
+            element.style.width = ''
             const { pxPerUnit } = frameFit()
             let worldX = params.paletteX
             let worldY = params.paletteY
@@ -140,17 +153,15 @@ export default function ProcessNotes()
             }
             else if(mode === 'combine')
             {
-                worldX = ATLAS_X
-                worldY = ATLAS_Y
+                worldX = ATLAS_DOCK_X
+                worldY = ATLAS_DOCK_Y
                 halfHeight = 1.05
             }
             else if(mode === 'ktx')
             {
-                const chip = smooth(params.atlasChip)
-                const dock = smooth(params.atlasDock)
-                worldX = lerp(ATLAS_X, ATLAS_DOCK_X, dock)
-                worldY = lerp(ATLAS_Y, ATLAS_DOCK_Y, dock)
-                halfHeight = lerp(1.05, 0.56, chip)
+                worldX = ATLAS_DOCK_X
+                worldY = ATLAS_DOCK_Y
+                halfHeight = 1.05
             }
             element.style.left = `${ window.innerWidth / 2 + worldX * pxPerUnit }px`
             element.style.top = `${ window.innerHeight / 2 - worldY * pxPerUnit + halfHeight * pxPerUnit + 12 }px`
