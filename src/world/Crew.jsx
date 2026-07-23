@@ -19,7 +19,8 @@ import { COLORS, ISO, ISO_SLOTS, ISO_GRID_EXTENT, ISO_GRID_STEP, isoSlotOffset }
  *   03  standing on the grid in gradient look
  *   06  same scene, painted — the artist's context
  *   07  everyone HOLDS their slot while the texture sheets fly off the models
- *   09  back on the grid as wireframes, then the combined texture applies
+ *   09  RGBA data attaches to wireframe instances
+ *   10  atlas UVs decode and the combined texture applies
  *       and every object comes alive
  */
 // pair indexes into usePairs().crewPairs — [ barrel, book, meat ]

@@ -9,17 +9,11 @@ import { WORLD, isoSlotOffset, HERO_SLOT } from '../config.js'
 
 /**
  * Act 06 — the artist control: a dropdown list docked NEXT TO THE MODEL inside
- * the scene window. Scroll runs a scripted demo (the dropdown opens, the
- * highlight walks down to the right texture, it's picked and the model
- * repaints — twice, via params.artistDrag/Wipe A+B), and the same dropdown is
- * fully real: click it, pick any texture, or drop an image file from the OS to
- * add one to the list.
+ * the scene window. Scroll opens it and switches base → pastel → red →
+ * aberration. Selection is immediate so every comparison reads clearly.
+ * The same dropdown remains fully interactive.
  */
 const ARTIST_STEP = 6
-// Swatch list is [base, pastel, red, aberration] — script picks pastel → red
-const DEMO_SWATCHES = [ 1, 2 ]
-
-const clamp01 = (value) => Math.min(Math.max(value, 0), 1)
 
 export default function TextureDropdown()
 {
@@ -65,7 +59,7 @@ export default function TextureDropdown()
 
     /**
      * Per-frame drive: position next to the hero, fade with params.dropdownIn,
-     * and play the scripted open → scan → pick → close sequence
+     * and play the scripted open → immediate option sequence
      */
     useEffect(() =>
     {
@@ -87,26 +81,9 @@ export default function TextureDropdown()
             const y = window.innerHeight / 2 - (heroOffset.y + 0.72) * pxPerUnit
             element.style.transform = `translate(${ x }px, ${ y }px)`
 
-            /**
-             * Scripted pick — phases of the active drag param
-             */
-            const second = params.artistDragB > 0.01
-            const progress = second ? params.artistDragB : params.artistDragA
-            const scriptActive = opacity > 0.002 && progress > 0.01 && progress < 0.995
-            const target = DEMO_SWATCHES[second ? 1 : 0]
-
-            let openAmount = userOpen ? 1 : 0
-            let highlight = - 1
-
-            if(scriptActive)
-            {
-                const open = clamp01(progress / 0.22)                    // list unfolds
-                const scan = clamp01((progress - 0.28) / 0.5)            // highlight walks down
-                const close = clamp01((progress - 0.9) / 0.1)            // picked — list folds
-
-                openAmount = open * (1 - close)
-                highlight = Math.round(scan * target)
-            }
+            const scriptedOpen = params.dropdownOpen
+            const openAmount = userOpen ? 1 : scriptedOpen
+            const highlight = scriptedOpen > 0.02 ? Math.round(params.paintTexture) : - 1
 
             const listElement = list.current
             if(listElement)

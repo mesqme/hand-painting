@@ -4,7 +4,6 @@ import { useTexture } from '@react-three/drei'
 import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js'
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
-import gsap from 'gsap'
 
 import usePairs from './usePairs.jsx'
 import { createAssetMaterial, updateAssetMaterial } from './materials/assetMaterial.js'
@@ -76,46 +75,12 @@ export default function DuckColumnAssembly()
     }, [maps, duckSeams, columnSeams])
 
     /**
-     * Live texture swaps from the tray / dropped files — serialized, so two
-     * quick clicks queue a second wipe instead of hard-cutting the first
+     * Live texture selection is intentionally immediate. The presentation
+     * demonstrates comparing options, not blending between them.
      */
-    const activeTween = useRef(null)
-    const pendingId = useRef(null)
-
     useEffect(() =>
     {
         const uniforms = material.uniforms
-
-        const startWipe = (texture) =>
-        {
-            uniforms.uMapPaintA.value = currentPaint.current
-            uniforms.uMapPaintB.value = texture
-            currentPaint.current = texture
-
-            activeTween.current = gsap.fromTo(uniforms.uSwapWipe,
-                { value: 0 },
-                {
-                    value: 1,
-                    duration: 0.9,
-                    ease: 'power2.inOut',
-                    onComplete: () =>
-                    {
-                        uniforms.uMapPaintA.value = texture
-                        uniforms.uSwapWipe.value = 0
-                        activeTween.current = null
-
-                        const next = pendingId.current
-                        pendingId.current = null
-                        if(next)
-                        {
-                            const nextTexture = getTextureById(next)
-                            if(nextTexture && nextTexture !== currentPaint.current)
-                                startWipe(nextTexture)
-                        }
-                    },
-                }
-            )
-        }
 
         const unsubscribeApply = useStage.subscribe(
             (state) => state.applySeq,
@@ -126,26 +91,17 @@ export default function DuckColumnAssembly()
                 if(!texture || texture === currentPaint.current)
                     return
 
-                if(activeTween.current)
-                {
-                    pendingId.current = id
-                    return
-                }
-
-                startWipe(texture)
+                currentPaint.current = texture
+                uniforms.uMapPaintA.value = texture
+                uniforms.uMapPaintB.value = texture
+                uniforms.uSwapWipe.value = 0
             }
         )
 
         return () => unsubscribeApply()
     }, [material])
 
-    /**
-     * Scripted artist swaps (act 06) — an ownership machine, not a blind
-     * override: scroll movement through the wipe windows takes the uniforms,
-     * a user apply (click/drag/drop) takes them back, and leaving the windows
-     * in EITHER scrub direction always restores the user-owned state.
-     */
-    const scripted = useRef({ engaged: false, from: null, seq: - 1, lastA: 0, lastB: 0 })
+    const lastPaintTexture = useRef(3)
 
     useFrame((state) =>
     {
@@ -168,71 +124,23 @@ export default function DuckColumnAssembly()
         duck.current.rotation.z = Math.sin(elapsed * 0.8 + 1) * 0.02
 
         const uniforms = material.uniforms
-        const script = scripted.current
-        const stage = useStage.getState()
-        const wipeA = params.artistWipeA
-        const wipeB = params.artistWipeB
-        const scriptMoving = Math.abs(wipeA - script.lastA) > 0.0005 || Math.abs(wipeB - script.lastB) > 0.0005
-        script.lastA = wipeA
-        script.lastB = wipeB
-
-        if(wipeA > 0.001 || wipeB > 0.001)
+        const selection = Math.round(params.paintTexture)
+        if(selection !== lastPaintTexture.current)
         {
-            if(scriptMoving)
+            const ids = [ 'base', 'pastel', 'red', 'aberration' ]
+            const id = ids[Math.min(Math.max(selection, 0), ids.length - 1)]
+            const texture = getTextureById(id)
+            if(texture)
             {
-                // Scroll is actively scrubbing the demo — (re)take ownership
-                script.seq = stage.applySeq
-                if(!script.engaged)
-                {
-                    script.engaged = true
-                    script.from = currentPaint.current
-                }
-            }
-
-            if(script.engaged && stage.applySeq === script.seq)
-            {
-                // Scripted picks walk the dropdown: pastel → red
-                const first = textureLibrary.entries[0]?.texture ?? script.from
-                const second = textureLibrary.entries[1]?.texture ?? script.from
-
-                if(wipeB > 0.001)
-                {
-                    uniforms.uMapPaintA.value = first
-                    uniforms.uMapPaintB.value = second
-                    uniforms.uSwapWipe.value = wipeB
-                }
-                else
-                {
-                    uniforms.uMapPaintA.value = script.from
-                    uniforms.uMapPaintB.value = first
-                    uniforms.uSwapWipe.value = wipeA
-                }
-
-                // The dropdown highlight follows the story
-                const wantSwatch = wipeB > 0.5
-                    ? textureLibrary.entries[1]?.id
-                    : wipeA > 0.5
-                        ? textureLibrary.entries[0]?.id
-                        : null
-                if(wantSwatch && stage.activeSwatch !== wantSwatch)
-                    useStage.setState({ activeSwatch: wantSwatch })
-            }
-        }
-        else if(script.engaged)
-        {
-            // Left the wipe windows (scrub-back or forward) — hand back
-            script.engaged = false
-            if(!gsap.isTweening(uniforms.uSwapWipe))
-            {
+                currentPaint.current = texture
+                uniforms.uMapPaintA.value = texture
+                uniforms.uMapPaintB.value = texture
                 uniforms.uSwapWipe.value = 0
-                uniforms.uMapPaintA.value = currentPaint.current
-                uniforms.uMapPaintB.value = currentPaint.current
+                const stage = useStage.getState()
+                if(stage.activeSwatch !== id)
+                    useStage.setState({ activeSwatch: id })
             }
-            const ownedId = currentPaint.current === textureLibrary.base
-                ? 'base'
-                : textureLibrary.entries.find((entry) => entry.texture === currentPaint.current)?.id
-            if(ownedId && stage.activeSwatch !== ownedId)
-                useStage.setState({ activeSwatch: ownedId })
+            lastPaintTexture.current = selection
         }
 
         // After the bake sweep, mapBase is the real baked texture and UVs

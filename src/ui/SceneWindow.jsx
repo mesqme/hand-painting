@@ -6,7 +6,7 @@ import { frameFit, clampFrameX } from './frameFit.js'
 import { params } from '../scroll/choreography.js'
 
 /**
- * Acts 03 / 06 / 09 — the "scene preview" window. A faked embedded canvas
+ * Acts 03 / 06 / 07 / 09 / 10 — the "scene preview" window.
  * (border, blueprint grid, floor line, window-chrome tag) that sits BEHIND
  * the transparent WebGL canvas, so framed acts read as running inside a
  * separate experience viewport. DOM on purpose: it adds zero draw calls.

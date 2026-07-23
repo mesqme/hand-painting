@@ -15,7 +15,7 @@ export default create(subscribeWithSelector((set) =>
          * Textures
          */
         swatches: [],
-        activeSwatch: 'baked',
+        activeSwatch: 'aberration',
         applyId: null,
         applySeq: 0,
 

@@ -24,12 +24,13 @@
  */
 :root
 {
-    --bg: #d6d4d1;
-    --ink: #3b3a38;
-    --ink-soft: #57544f;
-    --accent: #e78a2e;
-    --card: #f4f2ef;
-    --panel: #262523;
+    --bg: #dad7d2;
+    --ink: #302f2d;
+    --ink-soft: #55524e;
+    --accent: #de7f28;
+    --card: #f7f4ef;
+    --panel: #272624;
+    --hairline: rgba(48, 47, 45, 0.18);
     --mono: 'Cascadia Code', 'Consolas', 'JetBrains Mono', monospace;
 }
 
@@ -48,7 +49,11 @@ html
 
 body
 {
-    background: var(--bg);
+    background:
+        radial-gradient(circle at 18% 10%, rgba(255, 255, 255, 0.38), transparent 34rem),
+        radial-gradient(circle at 82% 78%, rgba(184, 177, 167, 0.18), transparent 38rem),
+        linear-gradient(135deg, #dedbd6 0%, var(--bg) 56%, #d3d0cb 100%);
+    background-attachment: fixed;
     color: var(--ink);
     font-family: 'Jost', 'Century Gothic', 'Futura', 'Segoe UI', sans-serif;
     overflow-x: hidden;
@@ -83,14 +88,15 @@ body
     width: 76vw;
     height: 72vh;
     transform: translate(-50%, -52%);
-    border: 1.5px solid rgba(59, 58, 56, 0.4);
-    border-radius: 10px;
-    background-color: rgba(244, 242, 239, 0.5);
+    border: 1px solid rgba(48, 47, 45, 0.34);
+    border-radius: 14px;
+    background-color: rgba(247, 244, 239, 0.58);
     /* blueprint grid only — the GROUND lives in 3D (the crew's tilted floor
        grid), so nothing here draws a parallel fake floor line */
     background-image:
-        repeating-linear-gradient(to right, rgba(59, 58, 56, 0.07) 0 1px, transparent 1px 46px),
-        repeating-linear-gradient(to bottom, rgba(59, 58, 56, 0.07) 0 1px, transparent 1px 46px);
+        repeating-linear-gradient(to right, rgba(48, 47, 45, 0.055) 0 1px, transparent 1px 46px),
+        repeating-linear-gradient(to bottom, rgba(48, 47, 45, 0.055) 0 1px, transparent 1px 46px);
+    box-shadow: 0 32px 80px rgba(48, 47, 45, 0.08);
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
@@ -144,13 +150,15 @@ body
 {
     position: sticky;
     top: 30vh;
-    width: min(400px, 86vw);
+    width: min(460px, 86vw);
     pointer-events: auto;
     will-change: transform, opacity;
-    background: rgba(244, 242, 239, 0.82);
-    border-radius: 12px;
-    padding: 20px 22px;
-    backdrop-filter: blur(2px);
+    background: rgba(247, 244, 239, 0.88);
+    border: 1px solid rgba(48, 47, 45, 0.12);
+    border-radius: 14px;
+    padding: 24px 27px 26px;
+    box-shadow: 0 18px 48px rgba(48, 47, 45, 0.07);
+    backdrop-filter: blur(5px);
 }
 
 .step--right .card
@@ -204,7 +212,8 @@ body
 .step--paint .card { top: 26vh; }
 .step--artist .card { top: 16vh; }
 .step--atlas .card { top: 10vh; }
-.step--batch .card { top: 30vh; }
+.step--batch-data .card { top: 15vh; }
+.step--batch-uv .card { top: 15vh; }
 
 /**
  * Typography
@@ -213,10 +222,10 @@ body
    duplicate plain-title line below it was removed) */
 .kicker
 {
-    font-size: 28px;
+    font-size: clamp(29px, 2.35vw, 38px);
     font-weight: 500;
     line-height: 1.15;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.025em;
     text-transform: uppercase;
     color: var(--accent);
     margin-bottom: 13px;
@@ -224,16 +233,18 @@ body
 
 .body
 {
-    font-size: 15.5px;
+    font-size: clamp(17px, 1.15vw, 19px);
     font-weight: 400;
-    line-height: 1.62;
+    line-height: 1.58;
     color: var(--ink-soft);
 }
 
 .hint
 {
-    margin-top: 14px;
-    font-size: 13.5px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--hairline);
+    font-size: 14.5px;
     font-weight: 500;
     letter-spacing: 0.02em;
     color: var(--accent);
@@ -253,7 +264,7 @@ body
 .hero-tagline
 {
     margin-top: 18px;
-    font-size: 15px;
+    font-size: 18px;
     letter-spacing: 0.06em;
     color: var(--ink-soft);
 }
@@ -297,7 +308,7 @@ body
     border-radius: 10px;
     padding: 17px 19px;
     font-family: var(--mono);
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.75;
     text-align: left;
     overflow-x: auto;
@@ -314,7 +325,7 @@ body
     left: 0;
     top: 0;
     z-index: 5;
-    width: 190px;
+    width: 280px;
     opacity: 0;
     visibility: hidden;
     pointer-events: auto;
@@ -323,7 +334,7 @@ body
 
 .dropdown-title
 {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.28em;
     text-transform: uppercase;
@@ -335,12 +346,12 @@ body
 {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     width: 100%;
     background: var(--card);
     border: 1px solid rgba(59, 58, 56, 0.25);
-    border-radius: 9px;
-    padding: 7px 9px;
+    border-radius: 11px;
+    padding: 11px 13px;
     font-family: inherit;
     cursor: pointer;
     box-shadow: 0 10px 26px rgba(0, 0, 0, 0.14);
@@ -364,8 +375,8 @@ body
     margin-top: 5px;
     background: var(--card);
     border: 1px solid rgba(59, 58, 56, 0.2);
-    border-radius: 9px;
-    padding: 4px;
+    border-radius: 11px;
+    padding: 6px;
     box-shadow: 0 16px 38px rgba(0, 0, 0, 0.18);
     transform-origin: top;
     transform: scaleY(0);
@@ -377,12 +388,12 @@ body
 {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     width: 100%;
     background: transparent;
     border: 0;
     border-radius: 6px;
-    padding: 6px 7px;
+    padding: 10px 11px;
     font-family: inherit;
     cursor: pointer;
     transition: background 0.15s ease;
@@ -402,9 +413,9 @@ body
 
 .dropdown-thumb
 {
-    width: 30px;
-    height: 22px;
-    border-radius: 5px;
+    width: 44px;
+    height: 34px;
+    border-radius: 7px;
     background-size: cover;
     background-position: center;
     flex-shrink: 0;
@@ -412,7 +423,7 @@ body
 
 .dropdown-label
 {
-    font-size: 12px;
+    font-size: 15px;
     letter-spacing: 0.03em;
     color: var(--ink-soft);
     white-space: nowrap;
@@ -422,8 +433,8 @@ body
 
 .dropdown-note
 {
-    margin-top: 7px;
-    font-size: 10.5px;
+    margin-top: 9px;
+    font-size: 12px;
     line-height: 1.5;
     letter-spacing: 0.04em;
     color: var(--ink-soft);
@@ -503,6 +514,255 @@ body
 }
 
 /**
+ * Short action notes — bake, Photoshop and KTX2
+ */
+.process-note
+{
+    position: fixed;
+    z-index: 7;
+    left: 50%;
+    top: 73vh;
+    width: min(310px, 76vw);
+    transform: translateX(-50%);
+    padding: 13px 16px 14px;
+    border: 1px solid var(--hairline);
+    border-left: 3px solid var(--accent);
+    border-radius: 11px;
+    background: rgba(247, 244, 239, 0.93);
+    box-shadow: 0 14px 38px rgba(48, 47, 45, 0.09);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+}
+
+.process-note[data-mode='paint']
+{
+    left: 51%;
+    top: 76vh;
+}
+
+.process-note[data-mode='ktx']
+{
+    left: 52%;
+    top: 72vh;
+}
+
+.process-note-eyebrow
+{
+    margin-bottom: 4px;
+    color: var(--accent);
+    font: 600 10px/1 var(--mono);
+    letter-spacing: 0.18em;
+}
+
+.process-note-title
+{
+    color: var(--ink);
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.process-note-detail
+{
+    margin-top: 4px;
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+/**
+ * Batch attribute / atlas remap explainer
+ */
+.batch-overlay
+{
+    position: fixed;
+    inset: 0;
+    z-index: 6;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.batch-panel
+{
+    position: absolute;
+    top: 18vh;
+    right: 4.5vw;
+    width: min(410px, 38vw);
+    padding: 18px;
+    border: 1px solid rgba(48, 47, 45, 0.18);
+    border-radius: 14px;
+    background: rgba(247, 244, 239, 0.94);
+    box-shadow: 0 22px 56px rgba(48, 47, 45, 0.11);
+    will-change: transform, opacity;
+}
+
+.batch-panel--decode
+{
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) 150px;
+    gap: 18px;
+    width: min(520px, 43vw);
+    opacity: 0;
+}
+
+.batch-panel-kicker
+{
+    margin-bottom: 12px;
+    color: var(--accent);
+    font: 600 11px/1.2 var(--mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.channel-grid
+{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+}
+
+.channel
+{
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    align-items: center;
+    min-height: 40px;
+    padding: 7px 9px;
+    border: 1px solid rgba(48, 47, 45, 0.12);
+    border-radius: 8px;
+    color: var(--ink-soft);
+    font-size: 12px;
+}
+
+.channel b
+{
+    font: 700 18px/1 var(--mono);
+}
+
+.channel--r b,
+.rgba-value--r { color: #ca4d42; }
+.channel--g b,
+.rgba-value--g { color: #348f63; }
+.channel--b b,
+.rgba-value--b { color: #496fc1; }
+.channel--a b,
+.rgba-value--a { color: #7359a7; }
+
+.batch-code,
+.batch-formula
+{
+    display: block;
+    margin-top: 13px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--panel);
+    color: #f0ede7;
+    font: 12px/1.55 var(--mono);
+    white-space: normal;
+}
+
+.batch-examples
+{
+    display: grid;
+    gap: 4px;
+    margin-top: 11px;
+}
+
+.batch-examples code
+{
+    color: var(--ink-soft);
+    font: 11px/1.4 var(--mono);
+}
+
+.batch-formula
+{
+    color: #f2a95e;
+    font-size: 13px;
+}
+
+.batch-panel-detail
+{
+    margin-top: 11px;
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.atlas-diagram
+{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+    aspect-ratio: 1;
+    padding: 5px;
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    background: #ddd8d1;
+}
+
+.atlas-cell
+{
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: #bcb6ae;
+    color: rgba(48, 47, 45, 0.7);
+    font: 600 10px/1 var(--mono);
+    transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.atlas-cell.is-complete
+{
+    background: #bd956d;
+    color: #fff;
+}
+
+.atlas-cell.is-active
+{
+    background: var(--accent);
+    color: #fff;
+    transform: scale(1.045);
+}
+
+.instance-token
+{
+    position: fixed;
+    left: 0;
+    top: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 7px;
+    border: 1px solid rgba(48, 47, 45, 0.24);
+    border-radius: 8px;
+    background: rgba(247, 244, 239, 0.96);
+    box-shadow: 0 8px 22px rgba(48, 47, 45, 0.11);
+    opacity: 0;
+    will-change: transform, opacity;
+}
+
+.instance-token.is-attached
+{
+    border-color: rgba(222, 127, 40, 0.68);
+    box-shadow: 0 0 0 3px rgba(222, 127, 40, 0.12);
+}
+
+.instance-token-name
+{
+    margin-right: 3px;
+    color: var(--ink);
+    font: 600 10px/1 var(--mono);
+}
+
+.rgba-value
+{
+    font: 700 10px/1 var(--mono);
+}
+
+/**
  * Small screens
  */
 @media (max-width: 760px)
@@ -510,6 +770,19 @@ body
     .card { width: 80vw; }
     .step--right .card { margin-right: 8vw; }
     .hero-title { font-size: 56px; }
-    .dropdown { width: 160px; }
+    .dropdown { width: 230px; }
     .perf { right: 14px; top: 14px; }
+    .batch-panel
+    {
+        top: 12vh;
+        right: 5vw;
+        width: 90vw;
+    }
+    .batch-panel--decode
+    {
+        grid-template-columns: 1fr 116px;
+        width: 90vw;
+    }
+    .channel-grid { grid-template-columns: 1fr; }
+    .instance-token { display: none; }
 }

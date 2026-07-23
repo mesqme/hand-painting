@@ -6,11 +6,11 @@ import useStage from '../stores/useStage.jsx'
  * Texture library
  *
  * Hero duck maps (real files):
- *   duck_base          — painted look from the start + hand-paint reveal target
+ *   duck_base          — the hand-paint reveal target
  *   duck_baked         — bake-step result (mapBase after the bake sweep)
  *   duck_pastel /
  *   duck_red /
- *   duck_base_abberation — the three live-update dropdown options
+ *   duck_base_abberation — the intro look and final live-update choice
  *
  * The gradient palette stays for act 02 (and as a uv0-friendly stand-in for
  * the crew, whose meshes don't share the duck's uv1 unwrap). Dropping any
@@ -20,6 +20,7 @@ export const textureLibrary = {
     gradient: null,
     baked: null,
     base: null,
+    aberration: null,
     entries: [],
     crewPaints: [],
 }
@@ -71,6 +72,8 @@ export function ensureLibrary(maps)
         })
     }
 
+    textureLibrary.aberration = textureLibrary.entries.find((entry) => entry.id === 'aberration')?.texture ?? base
+
     // Crew / atlas stand-ins — hue-shifted gradients that still read on uv0
     // (crew meshes don't share the duck's uv1 unwrap)
     textureLibrary.crewPaints = [
@@ -80,7 +83,7 @@ export function ensureLibrary(maps)
     ]
 
     pushSwatches()
-    useStage.setState({ activeSwatch: 'base' })
+    useStage.setState({ activeSwatch: 'aberration' })
 
     return textureLibrary
 }
@@ -98,7 +101,7 @@ export function getTextureById(id)
 
 export function getPaintedDefault()
 {
-    return textureLibrary.base
+    return textureLibrary.aberration
 }
 
 export function getBakedTexture()
@@ -152,8 +155,8 @@ export function addDroppedTexture(file)
  */
 function pushSwatches()
 {
-    // Base stays the default painted look (header of the dropdown); the three
-    // variants (+ any dropped files) are the choosable list
+    // Base begins the artist comparison; the three variants (+ any dropped
+    // files) complete the choosable list.
     const swatches = [
         { id: 'base', label: 'paint · base', thumb: makeThumb(textureLibrary.base.image) },
         ...textureLibrary.entries.map((entry) =>

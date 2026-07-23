@@ -1,7 +1,7 @@
 # Hand-Painting for Three.js
 
 One-page scroll presentation of the team's hand-painting asset workflow, built for a ~20 min talk.
-Vite + React Three Fiber, one fixed canvas behind nine scrolling acts.
+Vite + React Three Fiber, one fixed canvas behind an introduction and ten workflow acts.
 
 ## Run
 
@@ -11,19 +11,20 @@ npm run dev      # http://localhost:5173
 npm run build    # static build in dist/
 ```
 
-## The nine acts
+## The ten workflow acts
 
 | # | Act | What happens |
 |---|-----|--------------|
 | 1 | Create the model | White clay + wireframe; the very first scroll already moves the scene |
 | 2 | Gradient palette | Model center, sheet far right; island outlines pack onto the sheet while the **model's colors resolve island-by-island in lockstep** |
 | 3 | Test in the scene | The **level view**: a 45° tilted stage (camera-at-(7,7,7) look) with a full 3D floor grid; the four-piece crew stands on an even grid, hero on slot 2 — everything sized to stay INSIDE the scene window |
-| 4 | Bake | Red seam lines appear (constant width — the color alone reads), the model drops to wireframe, the sheet clears and shows the unwrapped layout as wireframe, then the sweep wipes the baked skin back on |
-| 5 | Hand paint | Nothing travels: the sheet wipes baked→painted and the model wears it simultaneously (the Photoshop story) |
-| 6 | Artist live loop | The SAME level view, now painted; a **texture dropdown docked next to the model** opens by script, picks a texture, and the hero repaints — the dropdown is also fully real (click it), plus the OS PNG drop |
-| 7 | Combine | Nobody moves: the crew HOLDS its window slots while each model's texture sheet lifts off it and the four sheets fly into one 2×2 atlas docked right |
-| 8 | Compress | Atlas shrinks into the floating stamped KTX2 chip next to the script |
-| 9 | Batch | Level view returns in **wireframe**; the KTX chip flies in, the combined texture applies member-by-member, and every object comes alive (barrel spins, book sways, meat hops). Perf monitor lives inside the window; draw calls **staged as "1"** for the draft — the real BatchedMesh version is a separate production task |
+| 4 | Bake | Gradient → wireframe → seams → real UV layout → seams off → baked texture, with short action notes |
+| 5 | Hand paint | The texture moves to the center and enlarges; a sharp noisy paint edge reveals `duck_base` on the sheet and model |
+| 6 | Live updates | The larger dropdown opens and switches immediately: base → pastel → red → aberration |
+| 7 | Combine | Four outlined 2D texture cards sit clear of the models and follow non-crossing paths into one atlas |
+| 8 | Compress | The stable atlas generates mipmaps and compresses to KTX2 with short process notes |
+| 9 | Encode data | The batch color attribute becomes RGBA instance data: geometry, texture variant, animation and state |
+| 10 | Remap UVs | The shader decodes R/G, retrieves atlas transforms and applies the correct atlas region per instance |
 
 ## The unwrap is real (TEXCOORD_1)
 
@@ -55,7 +56,7 @@ the artist side: the baked PNG for this layout and real hand-painted textures
   `params` in `useFrame` and write to objects/uniforms imperatively.
 - `src/world/materials/assetMaterial.js` + `src/shaders/asset/*.glsl` — one shader
   for every model state: `uWhiteMix` (clay), `uMapBase` (gradient/baked),
-  `uReveal` (baked→painted wipe), `uMapPaintA/B + uSwapWipe` (live swap wipe),
+  `uReveal` (sharp noisy baked→painted wipe),
   `uUnwrap` (position→UV morph used by the bake act; seams come free with the UVs).
 - `src/world/unwrapLayout.js` — island model from the real `uv1`: islands,
   seams, outlines and the `aUnwrapUv`/`aPackOrder` attributes.
@@ -64,8 +65,10 @@ the artist side: the baked PNG for this layout and real hand-painted textures
 - `src/world/textureLibrary.js` — swatch registry. Painted variants are currently
   generated from the gradient (hue shift + brush dabs) as placeholders.
 - `src/ui/TextureDropdown.jsx` — act-06 dropdown docked next to the model:
-  scripted open/pick demo driven by choreography params, plus the real picker
+  scripted immediate selections driven by choreography params, plus the real picker
   and the OS PNG drop.
+- `src/ui/ProcessNotes.jsx` — short bake, Photoshop and KTX2 action labels.
+- `src/ui/BatchDataOverlay.jsx` — the RGBA buffer and shader UV-remap explanation.
 - `src/ui/Sections.jsx` — DOM copy deck; per-section ScrollTriggers fade the sticky
   cards and track the active step for the dropdown/perf monitor.
 
@@ -75,9 +78,10 @@ Hero duck maps already live in `public/textures/`:
 
 | File | Role |
 |------|------|
-| `duck_base.png` | Painted look from the start; hand-paint reveal target |
+| `duck_base.png` | Hand-paint reveal target and the first live-update option |
 | `duck_baked.png` | Bake-step result on the model + sheet |
-| `duck_pastel.png` / `duck_red.png` / `duck_base_abberation.png` | Live-update dropdown options |
+| `duck_base_abberation.png` | Finished look shown in the introduction and selected last in the live-update act |
+| `duck_pastel.png` / `duck_red.png` | Intermediate live-update options |
 
 Crew meshes don't share the duck's uv1 unwrap, so they still wear hue-shifted
 gradient stand-ins. Drop any PNG on the page in act 06 to add another live

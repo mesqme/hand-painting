@@ -68,10 +68,35 @@ export default function PalettePlane()
 
                 varying vec2 vUv;
 
+                float hash21(vec2 point)
+                {
+                    point = fract(point * vec2(123.34, 456.21));
+                    point += dot(point, point + 45.32);
+                    return fract(point.x * point.y);
+                }
+
+                float valueNoise(vec2 point)
+                {
+                    vec2 cell = floor(point);
+                    vec2 local = fract(point);
+                    local = local * local * (3.0 - 2.0 * local);
+
+                    float a = hash21(cell);
+                    float b = hash21(cell + vec2(1.0, 0.0));
+                    float c = hash21(cell + vec2(0.0, 1.0));
+                    float d = hash21(cell + vec2(1.0, 1.0));
+
+                    return mix(mix(a, b, local.x), mix(c, d, local.x), local.y);
+                }
+
                 void main()
                 {
                     float edge = mix(1.1, - 0.1, uWipe);
-                    float mask = smoothstep(edge - 0.05, edge + 0.05, vUv.y);
+                    float noise = valueNoise(vUv * 3.6)
+                        + valueNoise(vUv * 7.4 + 12.7) * 0.35;
+                    noise /= 1.35;
+                    float paintedY = vUv.y + (noise - 0.5) * 0.34;
+                    float mask = smoothstep(edge - 0.018, edge + 0.018, paintedY);
 
                     // Final color
                     gl_FragColor = vec4(texture2D(uMap, vUv).rgb, mask * uOpacity);
@@ -87,8 +112,6 @@ export default function PalettePlane()
 
     useFrame((state) =>
     {
-        const elapsed = state.clock.elapsedTime
-
         // Keep the sheet on-screen when the viewport is narrow: clamp its right
         // edge inside the visible half-width (stage-local units). Identity on
         // landscape, where sheetX already sits well clear of the model.
@@ -96,7 +119,8 @@ export default function PalettePlane()
         const halfVisible = (state.viewport.width / 2) / fit
         const maxX = halfVisible - size * 1.07 / 2 - 0.06
         group.current.position.x = Math.min(params.paletteX, maxX)
-        group.current.position.y = WORLD.paletteY + Math.sin(elapsed * 0.7 + 2) * 0.02
+        group.current.position.y = params.paletteY
+        group.current.scale.setScalar(params.paletteScale)
         group.current.visible = params.paletteOpacity > 0.002
 
         // Gradient during the palette act; after the bake sweep the sheet

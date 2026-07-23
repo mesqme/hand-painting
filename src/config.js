@@ -15,7 +15,7 @@ export const COLORS = {
  * Scroll layout
  */
 export const LAYOUT = {
-    sections: 10,
+    sections: 11,
     sectionVh: 170,
 }
 
@@ -33,6 +33,8 @@ export const SCROLL_END = (LAYOUT.sections * SCROLL_UNIT - 1) / SCROLL_UNIT
 export const WORLD = {
     heroLeftX: - 2.05,
     sheetX: 2.35,
+    paintSheetX: 0.35,
+    paintHeroX: - 2.0,
     paletteY: 0.08,
     paletteSize: 1.7,
     assemblyHeight: 2.6,
@@ -133,52 +135,52 @@ export const STEPS = [
     {
         id: 'model',
         kicker: '01 · Create the model',
-        body: 'Model the asset with clean, even topology that unwraps easily. High-poly or low-poly — what matters is that it is ready to texture.',
+        body: 'Create balanced geometry with clean topology and enough resolution for the asset. The model must be easy to unwrap and edit.',
         side: 'right',
     },
     {
         id: 'palette',
         kicker: '02 · Gradient palette',
-        body: 'Unwrap the model and lay every part on a shared gradient palette. This colors the model without baking anything, so geometry and colors stay editable.',
+        body: 'Place each part of the model on a shared gradient palette. Geometry and colors remain editable before anything is baked.',
         side: 'left',
     },
     {
         id: 'scene',
         kicker: '03 · Test in the scene',
-        body: 'Drop the gradient-mapped asset into the running scene next to its siblings and check scale, layout and palette balance early.',
+        body: 'Check the asset inside the scene next to the other objects. Review its scale, silhouette and palette balance.',
         side: 'right',
     },
     {
         id: 'bake',
         kicker: '04 · Bake',
-        body: 'Cut seams, unwrap into real UV islands, and bake the gradient down onto that layout — one texture per asset.',
+        body: 'Turn the model into wireframe, create seams, inspect the UV islands, and bake the gradient colors into the final UV layout.',
         side: 'left',
-        // The bake sweep + skin return play late in the section — keep the card up for them
-        cardOut: 0.85,
+        cardOut: 0.91,
     },
     {
         id: 'paint',
         kicker: '05 · Hand paint',
-        body: 'Send the baked texture to the artist. They repaint it in Photoshop and the model wears the result.',
-        side: 'left',
+        body: 'The baked texture becomes the main working file. The artist repaints it in Photoshop and checks the result on the model.',
+        side: 'right',
+        cardOut: 0.88,
     },
     {
         id: 'artist',
         kicker: '06 · Live updates',
-        body: 'The artist gets a link to the running scene. Pick a repainted texture from the dropdown next to the model and it updates instantly, in context, next to its neighbours.',
-        hint: 'This part is real — pick a texture from the dropdown, or drop any PNG.',
+        body: 'Open the texture list and compare the painted options directly in the scene: base, pastel, red, then aberration.',
+        hint: 'You can also choose an option yourself or drop any PNG.',
         side: 'right',
     },
     {
         id: 'atlas',
         kicker: '07 · Combine',
-        body: 'Pack the finished textures into one atlas, so the whole set ships as a single sheet and material.',
+        body: 'Place one texture card beside each finished asset, then move the four cards into a single atlas without crossing their paths.',
         side: 'left',
     },
     {
         id: 'ktx',
         kicker: '08 · Compress',
-        body: 'Transcode the atlas to KTX2 — GPU-native, mipmapped, and a fraction of the size. One script per platform.',
+        body: 'Generate mipmaps and transcode the atlas to KTX2. The result is smaller and ready for direct GPU upload.',
         side: 'left',
         terminal: [
             '$ gltf-transform uastc scene.glb scene.ktx2.glb',
@@ -191,9 +193,17 @@ export const STEPS = [
         ],
     },
     {
-        id: 'batch',
-        kicker: '09 · Batch',
-        body: 'Different geometry, different paint, one atlas and one material — merged into a single draw call.',
+        id: 'batch-data',
+        kicker: '09 · Encode instance data',
+        body: 'Reuse the batch color attribute as an RGBA data buffer. R stores the geometry ID, G stores the texture variant, while B and A remain available for animation and state.',
+        hint: 'Update one instance with batchedMesh.setColorAt(instanceId, encodedColor).',
+        side: 'left',
+    },
+    {
+        id: 'batch-uv',
+        kicker: '10 · Remap atlas UVs',
+        body: 'The shader decodes the IDs, retrieves the matching UV scale and offset, and samples the correct atlas region for every instance.',
+        hint: 'atlasUv = originalUv * uvScale + uvOffset',
         side: 'left',
     },
 ]
