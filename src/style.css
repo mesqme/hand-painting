@@ -138,6 +138,8 @@ body
     position: relative;
 }
 
+/* Every card sits on a soft white chip so the copy always reads over the
+   3D scene, whatever is behind it */
 .card
 {
     position: sticky;
@@ -145,6 +147,10 @@ body
     width: min(400px, 86vw);
     pointer-events: auto;
     will-change: transform, opacity;
+    background: rgba(244, 242, 239, 0.82);
+    border-radius: 12px;
+    padding: 20px 22px;
+    backdrop-filter: blur(2px);
 }
 
 .step--right .card
@@ -181,6 +187,14 @@ body
     text-align: center;
     top: 74vh;
     width: min(540px, 86vw);
+}
+
+/* The hero title is much wider than the 400px copy cards — let its chip
+   grow to the text so nothing spills past the white background */
+.step--intro .card
+{
+    width: fit-content;
+    max-width: 86vw;
 }
 
 .step--model .card { top: 13vh; }
@@ -228,11 +242,6 @@ body
 /**
  * Hero
  */
-.hero
-{
-    margin-bottom: 6vh;
-}
-
 .hero-title
 {
     font-size: clamp(64px, 8.5vw, 118px);
@@ -421,16 +430,6 @@ body
     opacity: 0.72;
 }
 
-/* Cards that sit over a scene window get a soft chip so text stays readable */
-.step--scene .card,
-.step--artist .card,
-.step--batch .card
-{
-    background: rgba(244, 242, 239, 0.82);
-    border-radius: 12px;
-    padding: 20px 22px;
-    backdrop-filter: blur(2px);
-}
 
 /**
  * Perf monitor — lives inside the scene-window chrome

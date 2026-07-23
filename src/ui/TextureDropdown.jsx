@@ -16,7 +16,8 @@ import { WORLD, isoSlotOffset, HERO_SLOT } from '../config.js'
  * add one to the list.
  */
 const ARTIST_STEP = 6
-const DEMO_SWATCHES = [ 2, 3 ]
+// Swatch list is [base, pastel, red, aberration] — script picks pastel → red
+const DEMO_SWATCHES = [ 1, 2 ]
 
 const clamp01 = (value) => Math.min(Math.max(value, 0), 1)
 

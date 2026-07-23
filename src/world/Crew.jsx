@@ -23,10 +23,11 @@ import { COLORS, ISO, ISO_SLOTS, ISO_GRID_EXTENT, ISO_GRID_STEP, isoSlotOffset }
  *       and every object comes alive
  */
 // pair indexes into usePairs().crewPairs — [ barrel, book, meat ]
+// entry indexes into textureLibrary.crewPaints (uv0-friendly stand-ins)
 const MEMBERS = [
-    { slot: 0, entry: 1, pair: 'barrel' },
-    { slot: 2, entry: 2, pair: 'book' },
-    { slot: 3, entry: 3, pair: 'meat' },
+    { slot: 0, entry: 0, pair: 'barrel' },
+    { slot: 2, entry: 1, pair: 'book' },
+    { slot: 3, entry: 2, pair: 'meat' },
 ]
 
 const easeOutBack = (t) =>
@@ -48,17 +49,23 @@ export default function Crew()
     const shadows = useRef([])
 
     const { crewPairs } = usePairs()
-    const gradientTexture = useTexture('./textures/gradientPalette.png')
+    const maps = useTexture({
+        gradient: './textures/gradientPalette.png',
+        baked: './textures/duck_baked.png',
+        base: './textures/duck_base.png',
+        pastel: './textures/duck_pastel.png',
+        red: './textures/duck_red.png',
+        aberration: './textures/duck_base_abberation.png',
+    })
 
     const { materials, wireMaterial, shadowMaterial, gridMaterial, gridGeometry } = useMemo(() =>
     {
-        ensureLibrary(gradientTexture)
+        ensureLibrary(maps)
 
         const materials = MEMBERS.map((member) =>
         {
-            const entry = textureLibrary.entries[member.entry]
-            const painted = entry ? entry.texture : gradientTexture
-            return createAssetMaterial({ mapBase: gradientTexture, mapPaintA: painted, mapPaintB: painted, whiteMix: 0 })
+            const paint = textureLibrary.crewPaints[member.entry]?.texture ?? maps.gradient
+            return createAssetMaterial({ mapBase: maps.gradient, mapPaintA: paint, mapPaintB: paint, whiteMix: 0 })
         })
 
         const wireMaterial = createAssetMaterial({ wireframe: true, flatShade: true, opacity: 0 })
@@ -85,7 +92,7 @@ export default function Crew()
             gridMaterial,
             gridGeometry,
         }
-    }, [gradientTexture])
+    }, [maps])
 
     useFrame((state) =>
     {

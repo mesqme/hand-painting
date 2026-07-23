@@ -27,20 +27,27 @@ export default function DuckColumnAssembly()
     const currentPaint = useRef(null)
 
     const { duckGeometry, columnGeometry, duckSeams, columnSeams } = usePairs()
-    const gradientTexture = useTexture('./textures/gradientPalette.png')
+    const maps = useTexture({
+        gradient: './textures/gradientPalette.png',
+        baked: './textures/duck_baked.png',
+        base: './textures/duck_base.png',
+        pastel: './textures/duck_pastel.png',
+        red: './textures/duck_red.png',
+        aberration: './textures/duck_base_abberation.png',
+    })
 
     /**
-     * Materials + texture library + fat-line seams (thickness animates)
+     * Materials + texture library + seam lines
      */
     const { material, wireMaterial, seamMaterial, duckSeamLine, columnSeamLine } = useMemo(() =>
     {
-        ensureLibrary(gradientTexture)
+        ensureLibrary(maps)
 
         const painted = getPaintedDefault()
         currentPaint.current = painted
 
         const material = createAssetMaterial({
-            mapBase: gradientTexture,
+            mapBase: maps.gradient,
             mapPaintA: painted,
             mapPaintB: painted,
             whiteMix: 1,
@@ -66,7 +73,7 @@ export default function DuckColumnAssembly()
         )
 
         return { material, wireMaterial, seamMaterial, duckSeamLine, columnSeamLine }
-    }, [gradientTexture, duckSeams, columnSeams])
+    }, [maps, duckSeams, columnSeams])
 
     /**
      * Live texture swaps from the tray / dropped files — serialized, so two
@@ -184,27 +191,28 @@ export default function DuckColumnAssembly()
 
             if(script.engaged && stage.applySeq === script.seq)
             {
-                const moss = textureLibrary.entries[2]?.texture ?? script.from
-                const dusk = textureLibrary.entries[3]?.texture ?? script.from
+                // Scripted picks walk the dropdown: pastel → red
+                const first = textureLibrary.entries[0]?.texture ?? script.from
+                const second = textureLibrary.entries[1]?.texture ?? script.from
 
                 if(wipeB > 0.001)
                 {
-                    uniforms.uMapPaintA.value = moss
-                    uniforms.uMapPaintB.value = dusk
+                    uniforms.uMapPaintA.value = first
+                    uniforms.uMapPaintB.value = second
                     uniforms.uSwapWipe.value = wipeB
                 }
                 else
                 {
                     uniforms.uMapPaintA.value = script.from
-                    uniforms.uMapPaintB.value = moss
+                    uniforms.uMapPaintB.value = first
                     uniforms.uSwapWipe.value = wipeA
                 }
 
-                // The tray highlight follows the story
+                // The dropdown highlight follows the story
                 const wantSwatch = wipeB > 0.5
-                    ? textureLibrary.entries[3]?.id
+                    ? textureLibrary.entries[1]?.id
                     : wipeA > 0.5
-                        ? textureLibrary.entries[2]?.id
+                        ? textureLibrary.entries[0]?.id
                         : null
                 if(wantSwatch && stage.activeSwatch !== wantSwatch)
                     useStage.setState({ activeSwatch: wantSwatch })
@@ -220,16 +228,23 @@ export default function DuckColumnAssembly()
                 uniforms.uMapPaintA.value = currentPaint.current
                 uniforms.uMapPaintB.value = currentPaint.current
             }
-            const ownedId = textureLibrary.entries.find((entry) => entry.texture === currentPaint.current)?.id
+            const ownedId = currentPaint.current === textureLibrary.base
+                ? 'base'
+                : textureLibrary.entries.find((entry) => entry.texture === currentPaint.current)?.id
             if(ownedId && stage.activeSwatch !== ownedId)
                 useStage.setState({ activeSwatch: ownedId })
         }
+
+        // After the bake sweep, mapBase is the real baked texture and UVs
+        // snap back to the uv1 unwrap (gradient acts sample uv0 strips)
+        const baked = params.bakeSweep > 0.001
+        uniforms.uMapBase.value = baked ? textureLibrary.baked : textureLibrary.gradient
 
         updateAssetMaterial(material, {
             whiteMix: params.whiteMix,
             opacity: params.heroOpacity,
             reveal: params.reveal,
-            uvPack: params.uvProgress,
+            uvPack: baked ? 0 : params.uvProgress,
             surfaceWipe: params.heroSurface,
         })
 

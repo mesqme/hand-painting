@@ -5,20 +5,30 @@ import useStage from '../stores/useStage.jsx'
 /**
  * Texture library
  *
- * Render-free singleton holding every swatch the tray can apply. Entries carry
- * the live three.js texture plus a small dataURL thumb for the DOM. Painted
- * variants are placeholders generated from the gradient palette until real
- * hand-painted files exist — drop any PNG on the page to add one live.
+ * Hero duck maps (real files):
+ *   duck_base          — painted look from the start + hand-paint reveal target
+ *   duck_baked         — bake-step result (mapBase after the bake sweep)
+ *   duck_pastel /
+ *   duck_red /
+ *   duck_base_abberation — the three live-update dropdown options
+ *
+ * The gradient palette stays for act 02 (and as a uv0-friendly stand-in for
+ * the crew, whose meshes don't share the duck's uv1 unwrap). Dropping any
+ * PNG on the page still appends a live swatch to the dropdown.
  */
 export const textureLibrary = {
     gradient: null,
+    baked: null,
+    base: null,
     entries: [],
+    crewPaints: [],
 }
 
-const VARIANTS = [
-    { id: 'paint-warm', label: 'paint · warm', filter: 'hue-rotate(-32deg) saturate(1.65) brightness(1.05)' },
-    { id: 'paint-moss', label: 'paint · moss', filter: 'hue-rotate(120deg) saturate(1.05) brightness(0.97)' },
-    { id: 'paint-dusk', label: 'paint · dusk', filter: 'hue-rotate(225deg) saturate(1.2) brightness(0.9)' },
+// Dropdown-only variants (act 06). Order = scripted demo scan order.
+const DROPDOWN_VARIANTS = [
+    { id: 'pastel', label: 'paint · pastel', key: 'pastel' },
+    { id: 'red', label: 'paint · red', key: 'red' },
+    { id: 'aberration', label: 'paint · aberration', key: 'aberration' },
 ]
 
 let dropCount = 0
@@ -34,50 +44,66 @@ export function prepareMapTexture(texture)
     return texture
 }
 
-export function ensureLibrary(gradientTexture)
+/**
+ * @param {object} maps — { gradient, baked, base, pastel, red, aberration }
+ */
+export function ensureLibrary(maps)
 {
     if(textureLibrary.entries.length > 0)
         return textureLibrary
 
-    prepareMapTexture(gradientTexture)
-    textureLibrary.gradient = gradientTexture
+    const gradient = prepareMapTexture(maps.gradient)
+    const baked = prepareMapTexture(maps.baked)
+    const base = prepareMapTexture(maps.base)
 
-    textureLibrary.entries.push({
-        id: 'baked',
-        label: 'baked · gradient',
-        texture: gradientTexture,
-        thumb: makeThumb(gradientTexture.image),
-    })
+    textureLibrary.gradient = gradient
+    textureLibrary.baked = baked
+    textureLibrary.base = base
 
-    for(const variant of VARIANTS)
+    for(const variant of DROPDOWN_VARIANTS)
     {
-        const canvas = paintVariantCanvas(gradientTexture.image, variant.filter)
-        const texture = prepareMapTexture(new THREE.CanvasTexture(canvas))
+        const texture = prepareMapTexture(maps[variant.key])
         textureLibrary.entries.push({
             id: variant.id,
             label: variant.label,
             texture,
-            thumb: makeThumb(canvas),
+            thumb: makeThumb(texture.image),
         })
     }
 
-    pushSwatches()
+    // Crew / atlas stand-ins — hue-shifted gradients that still read on uv0
+    // (crew meshes don't share the duck's uv1 unwrap)
+    textureLibrary.crewPaints = [
+        { id: 'crew-warm', texture: makeCrewPaint(gradient, 'hue-rotate(-32deg) saturate(1.65) brightness(1.05)') },
+        { id: 'crew-moss', texture: makeCrewPaint(gradient, 'hue-rotate(120deg) saturate(1.05) brightness(0.97)') },
+        { id: 'crew-dusk', texture: makeCrewPaint(gradient, 'hue-rotate(225deg) saturate(1.2) brightness(0.9)') },
+    ]
 
-    // The act-05 reveal shows the first painted variant — keep the tray in sync
-    useStage.setState({ activeSwatch: textureLibrary.entries[1].id })
+    pushSwatches()
+    useStage.setState({ activeSwatch: 'base' })
 
     return textureLibrary
 }
 
 export function getTextureById(id)
 {
+    if(id === 'base')
+        return textureLibrary.base
+    if(id === 'baked')
+        return textureLibrary.baked
+
     const entry = textureLibrary.entries.find((entry) => entry.id === id)
     return entry ? entry.texture : null
 }
 
 export function getPaintedDefault()
 {
-    return textureLibrary.entries[1]?.texture ?? textureLibrary.gradient
+    return textureLibrary.base
+}
+
+export function getBakedTexture()
+{
+    return textureLibrary.baked
 }
 
 /**
@@ -126,10 +152,22 @@ export function addDroppedTexture(file)
  */
 function pushSwatches()
 {
-    useStage.getState().setSwatches(textureLibrary.entries.map((entry) =>
-    {
-        return { id: entry.id, label: entry.label, thumb: entry.thumb }
-    }))
+    // Base stays the default painted look (header of the dropdown); the three
+    // variants (+ any dropped files) are the choosable list
+    const swatches = [
+        { id: 'base', label: 'paint · base', thumb: makeThumb(textureLibrary.base.image) },
+        ...textureLibrary.entries.map((entry) =>
+        {
+            return { id: entry.id, label: entry.label, thumb: entry.thumb }
+        }),
+    ]
+    useStage.getState().setSwatches(swatches)
+}
+
+function makeCrewPaint(gradient, filter)
+{
+    const canvas = paintVariantCanvas(gradient.image, filter)
+    return prepareMapTexture(new THREE.CanvasTexture(canvas))
 }
 
 function paintVariantCanvas(image, filter)
@@ -143,7 +181,6 @@ function paintVariantCanvas(image, filter)
     context.drawImage(image, 0, 0, 1024, 1024)
     context.filter = 'none'
 
-    // Brush pass — soft monochrome dabs so the sheet reads hand-touched
     for(let i = 0; i < 170; i++)
     {
         const x = Math.random() * 1024

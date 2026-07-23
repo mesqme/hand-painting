@@ -20,13 +20,13 @@ const SHEET_START_SIZE = 0.5
 const SHEET_END_SIZE = 0.88
 const QUADRANTS = [ [ - 0.44, 0.44 ], [ 0.44, 0.44 ], [ - 0.44, - 0.44 ], [ 0.44, - 0.44 ] ]
 
-// Which crew slot each quadrant's sheet lifts off from, and the texture that
-// model wears at the end of act 06 (barrel warm, hero dusk, book moss, meat dusk)
+// Which crew slot each quadrant's sheet lifts off from, and the paint that
+// model wears (crew stand-ins + hero base). Hero slot uses duck_base.
 const SHEET_SOURCES = [
-    { slot: 0, entry: 1 },
-    { slot: 1, entry: 3 },
-    { slot: 2, entry: 2 },
-    { slot: 3, entry: 3 },
+    { slot: 0, crew: 0 },
+    { slot: 1, hero: true },
+    { slot: 2, crew: 1 },
+    { slot: 3, crew: 2 },
 ]
 
 const smooth = (t) => t * t * (3 - 2 * t)
@@ -40,21 +40,30 @@ export default function AtlasCombine()
     const stamp = useRef()
     const sheets = useRef([])
 
-    const gradientTexture = useTexture('./textures/gradientPalette.png')
+    const maps = useTexture({
+        gradient: './textures/gradientPalette.png',
+        baked: './textures/duck_baked.png',
+        base: './textures/duck_base.png',
+        pastel: './textures/duck_pastel.png',
+        red: './textures/duck_red.png',
+        aberration: './textures/duck_base_abberation.png',
+    })
 
     const { sheetMaterials, stampMaterial } = useMemo(() =>
     {
-        ensureLibrary(gradientTexture)
+        ensureLibrary(maps)
 
         const sheetMaterials = SHEET_SOURCES.map((source) =>
         {
-            const entry = textureLibrary.entries[source.entry]
-            return new THREE.MeshBasicMaterial({ map: entry.texture, transparent: true, opacity: 0 })
+            const texture = source.hero
+                ? textureLibrary.base
+                : textureLibrary.crewPaints[source.crew]?.texture
+            return new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0 })
         })
         const stampMaterial = new THREE.MeshBasicMaterial({ map: makeStampTexture(), transparent: true })
 
         return { sheetMaterials, stampMaterial }
-    }, [gradientTexture])
+    }, [maps])
 
     useFrame((state) =>
     {

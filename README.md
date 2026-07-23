@@ -71,15 +71,17 @@ the artist side: the baked PNG for this layout and real hand-painted textures
 
 ## Swapping in real textures later
 
-1. **Baked texture**: put it in `public/textures/` and set it as `mapBase` where
-   components call `createAssetMaterial({ mapBase: ... })` (or extend
-   `textureLibrary.js` to load it). Keep `flipY = false` (glTF UV convention) —
-   `prepareMapTexture()` does this.
-2. **Painted variants**: replace the `VARIANTS` canvas generation in
-   `textureLibrary.js` with real files — load, run through `prepareMapTexture`,
-   push `{ id, label, texture, thumb }` into `textureLibrary.entries`.
-3. During the talk you can simply **drag real PNGs onto the page** in act 5 —
-   they become live swatches (exactly the artist upload flow).
+Hero duck maps already live in `public/textures/`:
+
+| File | Role |
+|------|------|
+| `duck_base.png` | Painted look from the start; hand-paint reveal target |
+| `duck_baked.png` | Bake-step result on the model + sheet |
+| `duck_pastel.png` / `duck_red.png` / `duck_base_abberation.png` | Live-update dropdown options |
+
+Crew meshes don't share the duck's uv1 unwrap, so they still wear hue-shifted
+gradient stand-ins. Drop any PNG on the page in act 06 to add another live
+swatch.
 
 ## Verify the unwrap data
 
