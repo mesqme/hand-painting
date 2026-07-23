@@ -10,7 +10,8 @@ import { WORLD, isoSlotOffset, HERO_SLOT } from '../config.js'
 /**
  * Act 06 — the artist control: a dropdown list docked NEXT TO THE MODEL inside
  * the scene window. Scroll opens it and switches base → pastel → red →
- * aberration. Selection is immediate so every comparison reads clearly.
+ * aberration. Each short selection change drives the same painterly wipe used
+ * in the hand-painting step, while the list highlight crossfades quickly.
  * The same dropdown remains fully interactive.
  */
 const ARTIST_STEP = 6
@@ -59,7 +60,7 @@ export default function TextureDropdown()
 
     /**
      * Per-frame drive: position next to the hero, fade with params.dropdownIn,
-     * and play the scripted open → immediate option sequence
+     * and play the scripted open → painterly option sequence
      */
     useEffect(() =>
     {
@@ -88,7 +89,9 @@ export default function TextureDropdown()
             const listElement = list.current
             if(listElement)
             {
-                listElement.style.transform = `scaleY(${ openAmount })`
+                const clipped = (1 - openAmount) * 100
+                listElement.style.clipPath = `inset(0 0 ${ clipped }% 0 round 11px)`
+                listElement.style.transform = `translateY(${ (1 - openAmount) * - 8 }px)`
                 listElement.style.opacity = Math.min(openAmount * 1.6, 1)
                 listElement.style.pointerEvents = openAmount > 0.9 ? 'auto' : 'none'
             }

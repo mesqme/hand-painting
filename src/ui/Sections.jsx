@@ -2,13 +2,13 @@ import { useEffect, useRef } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
-import { STEPS } from '../config.js'
+import { SCROLL_END, STEPS } from '../config.js'
 import useStage from '../stores/useStage.jsx'
 
 /**
- * The scrolling copy deck. Each step is one full section; its card is sticky
- * and fades in/out at the section edges. A separate trigger tracks the active
- * step for the fixed UI (texture tray, perf monitor).
+ * The copy and 3D scene share the same scroll-time coordinate. Cards are fixed
+ * presentation panels; the tall sections below only provide scroll distance.
+ * This keeps every heading attached to the exact visual action it describes.
  */
 export default function Sections()
 {
@@ -22,52 +22,90 @@ export default function Sections()
 
         const context = gsap.context(() =>
         {
-            const sections = gsap.utils.toArray('.step')
+            const cards = gsap.utils.toArray('.card')
+            const quack = page.current.querySelector('.quack-bubble')
+            const cue = page.current.querySelector('.scroll-cue')
+            let activeStep = 0
+            let quackShown = false
+            let quackDismissed = false
 
-            sections.forEach((section, index) =>
+            gsap.set(cards, { autoAlpha: 0, y: 34 })
+            gsap.set(cards[0], { autoAlpha: 1, y: 0 })
+            gsap.set(quack, { autoAlpha: 0, scale: 0.82, rotation: - 3 })
+
+            const quackDelay = gsap.delayedCall(5, () =>
             {
-                const card = section.querySelector('.card')
+                if(quackDismissed)
+                    return
 
-                ScrollTrigger.create({
-                    trigger: section,
-                    start: 'top 30%',
-                    end: 'bottom 70%',
-                    onToggle: (self) => { if(self.isActive) setStep(index) },
-                    // Symmetric on the way back up, so step-gated UI (the
-                    // tray) never lingers over the previous act
-                    onLeaveBack: () => setStep(Math.max(index - 1, 0)),
+                quackShown = true
+                gsap.to(quack, {
+                    autoAlpha: 1,
+                    scale: 1,
+                    duration: 0.42,
+                    ease: 'back.out(1.8)',
                 })
+            })
 
-                const timeline = gsap.timeline({
-                    scrollTrigger: {
-                        trigger: section,
-                        start: 'top 92%',
-                        end: 'bottom 8%',
-                        scrub: true,
+            const timeline = gsap.timeline({
+                scrollTrigger: {
+                    trigger: page.current,
+                    start: 'top top',
+                    end: 'bottom bottom',
+                    scrub: true,
+                    onUpdate: (self) =>
+                    {
+                        const time = self.progress * SCROLL_END
+                        if(time > 0.06 && !quackDismissed)
+                        {
+                            quackDismissed = true
+                            quackDelay.kill()
+                            if(quackShown)
+                                gsap.to(quack, { autoAlpha: 0, y: - 14, duration: 0.16 })
+                        }
+
+                        let nextStep = 0
+                        for(let index = 1; index < STEPS.length; index++)
+                        {
+                            if(time >= STEPS[index].at)
+                                nextStep = index
+                        }
+
+                        if(nextStep !== activeStep)
+                        {
+                            activeStep = nextStep
+                            setStep(nextStep)
+                        }
                     },
-                })
+                },
+            })
+
+            timeline.to(cue, { autoAlpha: 0, y: - 10, duration: 0.1 }, 0.02)
+
+            STEPS.forEach((step, index) =>
+            {
+                const card = cards[index]
+                const nextAt = STEPS[index + 1]?.at ?? SCROLL_END
 
                 if(index > 0)
                 {
-                    const cardOut = STEPS[index].cardOut ?? 0.78
-                    timeline.fromTo(card, { autoAlpha: 0, y: 44 }, { autoAlpha: 1, y: 0, duration: 0.15, ease: 'power2.out' }, 0.18)
-                    timeline.to(card, { autoAlpha: 0, y: - 32, duration: 0.15, ease: 'power1.in' }, cardOut)
-                }
-                else
-                {
-                    // The hero card leaves early — the scene reacts to the very
-                    // first scroll, and the copy should not linger over it
-                    timeline.to(card, { autoAlpha: 0, y: - 32, duration: 0.12, ease: 'power1.in' }, 0.52)
+                    timeline.fromTo(
+                        card,
+                        { autoAlpha: 0, y: 34 },
+                        { autoAlpha: 1, y: 0, duration: 0.12, ease: 'power2.out' },
+                        Math.max(step.at - 0.04, 0)
+                    )
                 }
 
-                timeline.to(card, { y: - 32, duration: 0.001 }, 0.999)
+                timeline.to(
+                    card,
+                    { autoAlpha: 0, y: - 28, duration: 0.12, ease: 'power1.in' },
+                    Math.max(nextAt - 0.16, step.at + 0.2)
+                )
             })
 
-            // Scroll cue vanishes the moment scrolling starts
-            gsap.to('.scroll-cue', {
-                autoAlpha: 0,
-                scrollTrigger: { start: 'top top', end: '160 top', scrub: true },
-            })
+            // Preserve one complete scroll unit for the final act.
+            timeline.to({}, { duration: 0.001 }, SCROLL_END - 0.001)
         }, page)
 
         return () => context.revert()
@@ -101,7 +139,10 @@ export default function Sections()
                     </div>
 
                     { step.hero === true &&
-                        <div className="scroll-cue">scroll<span>↓</span></div>
+                        <>
+                            <div className="quack-bubble">Quack!</div>
+                            <div className="scroll-cue">scroll<span>↓</span></div>
+                        </>
                     }
                 </section>
             ) }

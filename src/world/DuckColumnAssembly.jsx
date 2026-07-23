@@ -1,6 +1,8 @@
+import * as THREE from 'three'
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useTexture } from '@react-three/drei'
+import gsap from 'gsap'
 import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js'
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
@@ -12,6 +14,9 @@ import useStage from '../stores/useStage.jsx'
 import { params } from '../scroll/choreography.js'
 import { COLORS } from '../config.js'
 
+const PAINT_IDS = [ 'base', 'pastel', 'red', 'aberration' ]
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max)
+
 /**
  * The hero duck + column. One assembly plays every act: clay model, gradient
  * lookup, seam-cut bake reference, and the hand-painted result with both
@@ -21,9 +26,13 @@ export default function DuckColumnAssembly()
 {
     const group = useRef()
     const duck = useRef()
+    const neutralColumn = useRef()
+    const neutralDuck = useRef()
     const wireColumn = useRef()
     const wireDuck = useRef()
     const currentPaint = useRef(null)
+    const drag = useRef({ active: false, x: 0, y: 0, pointerId: null })
+    const dragRotation = useRef({ x: 0, y: 0 })
 
     const { duckGeometry, columnGeometry, duckSeams, columnSeams } = usePairs()
     const maps = useTexture({
@@ -38,7 +47,7 @@ export default function DuckColumnAssembly()
     /**
      * Materials + texture library + seam lines
      */
-    const { material, wireMaterial, seamMaterial, duckSeamLine, columnSeamLine } = useMemo(() =>
+    const { material, neutralMaterial, wireMaterial, seamMaterial, duckSeamLine, columnSeamLine } = useMemo(() =>
     {
         ensureLibrary(maps)
 
@@ -52,6 +61,17 @@ export default function DuckColumnAssembly()
             whiteMix: 1,
             uvPack: 0,
         })
+        const neutralMaterial = new THREE.MeshStandardMaterial({
+            color: 0xf1ede6,
+            roughness: 0.86,
+            metalness: 0,
+            flatShading: true,
+            transparent: true,
+            opacity: 0,
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1,
+        })
         const wireMaterial = createAssetMaterial({ wireframe: true, flatShade: true, opacity: 0.28 })
 
         // Constant-width red lines — the color alone marks the seams (no
@@ -61,6 +81,7 @@ export default function DuckColumnAssembly()
             linewidth: 2,
             transparent: true,
             opacity: 0,
+            depthWrite: false,
         })
         const duckSeamLine = new LineSegments2(
             new LineSegmentsGeometry().setPositions(duckSeams),
@@ -70,8 +91,10 @@ export default function DuckColumnAssembly()
             new LineSegmentsGeometry().setPositions(columnSeams),
             seamMaterial
         )
+        duckSeamLine.renderOrder = 8
+        columnSeamLine.renderOrder = 8
 
-        return { material, wireMaterial, seamMaterial, duckSeamLine, columnSeamLine }
+        return { material, neutralMaterial, wireMaterial, seamMaterial, duckSeamLine, columnSeamLine }
     }, [maps, duckSeams, columnSeams])
 
     /**
@@ -103,6 +126,60 @@ export default function DuckColumnAssembly()
 
     const lastPaintTexture = useRef(3)
 
+    useEffect(() =>
+    {
+        return () =>
+        {
+            gsap.killTweensOf(dragRotation.current)
+            document.documentElement.style.cursor = ''
+        }
+    }, [])
+
+    const beginRotate = (event) =>
+    {
+        if(params.heroOpacity <= 0.002)
+            return
+
+        event.stopPropagation()
+        event.target.setPointerCapture(event.pointerId)
+        drag.current = {
+            active: true,
+            x: event.clientX,
+            y: event.clientY,
+            pointerId: event.pointerId,
+        }
+        gsap.killTweensOf(dragRotation.current)
+        document.documentElement.style.cursor = 'grabbing'
+    }
+
+    const rotate = (event) =>
+    {
+        if(!drag.current.active)
+            return
+
+        const dx = event.clientX - drag.current.x
+        const dy = event.clientY - drag.current.y
+        dragRotation.current.y = dx / Math.max(window.innerWidth, 1) * Math.PI * 2.4
+        dragRotation.current.x = dy / Math.max(window.innerHeight, 1) * Math.PI * 1.35
+    }
+
+    const endRotate = (event) =>
+    {
+        if(!drag.current.active)
+            return
+
+        event.stopPropagation()
+        event.target.releasePointerCapture?.(drag.current.pointerId)
+        drag.current.active = false
+        document.documentElement.style.cursor = ''
+        gsap.to(dragRotation.current, {
+            x: 0,
+            y: 0,
+            duration: 0.9,
+            ease: 'elastic.out(1, 0.34)',
+        })
+    }
+
     useFrame((state) =>
     {
         const elapsed = state.clock.elapsedTime
@@ -116,31 +193,57 @@ export default function DuckColumnAssembly()
 
         // Scroll turns the model gently (pitch joins the level view); a slow
         // drift keeps it alive in between
-        group.current.rotation.x = params.heroRotX
-        group.current.rotation.y = params.heroRotY + Math.sin(elapsed * 0.35) * 0.12 * (1 - params.heroStanding)
+        group.current.rotation.x = params.heroRotX + dragRotation.current.x
+        group.current.rotation.y = params.heroRotY
+            + params.heroSpinY
+            + dragRotation.current.y
+            + Math.sin(elapsed * 0.35) * 0.12 * (1 - params.heroStanding)
 
         // Duck floats above its column
         duck.current.position.y = Math.sin(elapsed * 1.3) * 0.06
         duck.current.rotation.z = Math.sin(elapsed * 0.8 + 1) * 0.02
 
         const uniforms = material.uniforms
-        const selection = Math.round(params.paintTexture)
-        if(selection !== lastPaintTexture.current)
+        const sequence = clamp(params.paintTexture, 0, PAINT_IDS.length - 1)
+        const scripted = params.dropdownOpen > 0.001
+
+        if(scripted)
         {
-            const ids = [ 'base', 'pastel', 'red', 'aberration' ]
-            const id = ids[Math.min(Math.max(selection, 0), ids.length - 1)]
-            const texture = getTextureById(id)
+            const fromIndex = Math.floor(sequence)
+            const toIndex = Math.min(fromIndex + 1, PAINT_IDS.length - 1)
+            const fromTexture = getTextureById(PAINT_IDS[fromIndex])
+            const toTexture = getTextureById(PAINT_IDS[toIndex])
+            const wipe = sequence - fromIndex
+
+            if(fromTexture && toTexture)
+            {
+                uniforms.uMapPaintA.value = fromTexture
+                uniforms.uMapPaintB.value = toTexture
+                uniforms.uSwapWipe.value = wipe
+
+                const selectedIndex = Math.round(sequence)
+                const selectedId = PAINT_IDS[selectedIndex]
+                currentPaint.current = getTextureById(selectedId)
+                const stage = useStage.getState()
+                if(stage.activeSwatch !== selectedId)
+                    useStage.setState({ activeSwatch: selectedId })
+            }
+            lastPaintTexture.current = sequence
+        }
+        else if(sequence !== lastPaintTexture.current)
+        {
+            const selectedIndex = Math.round(sequence)
+            const selectedId = PAINT_IDS[selectedIndex]
+            const texture = getTextureById(selectedId)
             if(texture)
             {
                 currentPaint.current = texture
                 uniforms.uMapPaintA.value = texture
                 uniforms.uMapPaintB.value = texture
                 uniforms.uSwapWipe.value = 0
-                const stage = useStage.getState()
-                if(stage.activeSwatch !== id)
-                    useStage.setState({ activeSwatch: id })
+                useStage.setState({ activeSwatch: selectedId })
             }
-            lastPaintTexture.current = selection
+            lastPaintTexture.current = sequence
         }
 
         // After the bake sweep, mapBase is the real baked texture and UVs
@@ -150,11 +253,18 @@ export default function DuckColumnAssembly()
 
         updateAssetMaterial(material, {
             whiteMix: params.whiteMix,
+            clayWipe: params.clayWipe,
             opacity: params.heroOpacity,
             reveal: params.reveal,
             uvPack: baked ? 0 : params.uvProgress,
             surfaceWipe: params.heroSurface,
         })
+
+        const neutralOpacity = params.neutralOpacity * params.heroOpacity
+        neutralMaterial.opacity = neutralOpacity
+        neutralMaterial.depthWrite = neutralOpacity > 0.98
+        neutralColumn.current.visible = neutralOpacity > 0.002
+        neutralDuck.current.visible = neutralOpacity > 0.002
 
         const wireOpacity = params.wireOpacity * params.heroOpacity
         updateAssetMaterial(wireMaterial, { opacity: wireOpacity })
@@ -169,17 +279,35 @@ export default function DuckColumnAssembly()
     })
 
     return (
-        <group ref={ group }>
-            <mesh geometry={ columnGeometry } material={ material } />
+        <group
+            ref={ group }
+            onPointerDown={ beginRotate }
+            onPointerMove={ rotate }
+            onPointerUp={ endRotate }
+            onPointerCancel={ endRotate }
+            onPointerOver={ () =>
+            {
+                if(params.heroOpacity > 0.002)
+                    document.documentElement.style.cursor = 'grab'
+            } }
+            onPointerOut={ () =>
+            {
+                if(!drag.current.active)
+                    document.documentElement.style.cursor = ''
+            } }
+        >
+            <mesh geometry={ columnGeometry } material={ material } renderOrder={ 0 } />
+            <mesh ref={ neutralColumn } geometry={ columnGeometry } material={ neutralMaterial } renderOrder={ 2 } />
             <mesh ref={ wireColumn } geometry={ columnGeometry } material={ wireMaterial } />
 
             <group ref={ duck }>
-                <mesh geometry={ duckGeometry } material={ material } />
+                <mesh geometry={ duckGeometry } material={ material } renderOrder={ 0 } />
+                <mesh ref={ neutralDuck } geometry={ duckGeometry } material={ neutralMaterial } renderOrder={ 2 } />
                 <mesh ref={ wireDuck } geometry={ duckGeometry } material={ wireMaterial } />
-                <primitive object={ duckSeamLine } />
+                <primitive object={ duckSeamLine } scale={ 1.008 } />
             </group>
 
-            <primitive object={ columnSeamLine } />
+            <primitive object={ columnSeamLine } scale={ 1.008 } />
         </group>
     )
 }

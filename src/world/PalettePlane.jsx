@@ -91,12 +91,14 @@ export default function PalettePlane()
 
                 void main()
                 {
-                    float edge = mix(1.1, - 0.1, uWipe);
                     float noise = valueNoise(vUv * 3.6)
                         + valueNoise(vUv * 7.4 + 12.7) * 0.35;
                     noise /= 1.35;
                     float paintedY = vUv.y + (noise - 0.5) * 0.34;
+                    float edge = mix(1.1, - 0.1, uWipe);
                     float mask = smoothstep(edge - 0.018, edge + 0.018, paintedY);
+                    if(uWipe <= 0.001) mask = 0.0;
+                    if(uWipe >= 0.999) mask = 1.0;
 
                     // Final color
                     gl_FragColor = vec4(texture2D(uMap, vUv).rgb, mask * uOpacity);
@@ -118,7 +120,8 @@ export default function PalettePlane()
         const fit = THREE.MathUtils.clamp(state.viewport.aspect / 1.72, 0.6, 1)
         const halfVisible = (state.viewport.width / 2) / fit
         const maxX = halfVisible - size * 1.07 / 2 - 0.06
-        group.current.position.x = Math.min(params.paletteX, maxX)
+        const minX = - maxX
+        group.current.position.x = Math.min(Math.max(params.paletteX, minX), maxX)
         group.current.position.y = params.paletteY
         group.current.scale.setScalar(params.paletteScale)
         group.current.visible = params.paletteOpacity > 0.002

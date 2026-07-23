@@ -114,6 +114,28 @@ for(const geometry of [ duck, column ])
         ok(`${ name }: aUnwrapUv matches authored uv1 exactly`)
 }
 
+// Every authored UV1 triangle must retain measurable area. A collapsed UV
+// triangle can look like a tiny missing or wrongly oriented texture fragment.
+for(const geometry of [ duck, column ])
+{
+    const name = geometry === duck ? 'duck' : 'column'
+    const uv1 = geometry.getAttribute('uv1')
+    let collapsed = 0
+    for(let i = 0; i < uv1.count; i += 3)
+    {
+        const ax = uv1.getX(i), ay = uv1.getY(i)
+        const bx = uv1.getX(i + 1), by = uv1.getY(i + 1)
+        const cx = uv1.getX(i + 2), cy = uv1.getY(i + 2)
+        const twiceArea = Math.abs((bx - ax) * (cy - ay) - (by - ay) * (cx - ax))
+        if(twiceArea < 1e-10)
+            collapsed++
+    }
+    if(collapsed)
+        problems.push(`${ name }: ${ collapsed } collapsed UV1 triangles`)
+    else
+        ok(`${ name }: no collapsed UV1 triangles`)
+}
+
 // Line data builds and animates NaN-free
 const lineData = buildUvLineData(islandModel, 1.7)
 ok(`line data built: ${ lineData.geometry.getAttribute('position').count } points`)

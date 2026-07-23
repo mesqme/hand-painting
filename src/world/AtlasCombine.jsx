@@ -6,62 +6,33 @@ import { useTexture } from '@react-three/drei'
 import { ensureLibrary, textureLibrary } from './textureLibrary.js'
 import { clampFrameX } from '../ui/frameFit.js'
 import { params } from '../scroll/choreography.js'
-import { COLORS, ATLAS_X, isoSlotOffset } from '../config.js'
+import { ATLAS_X, COLORS, isoSlotOffset } from '../config.js'
 
 /**
- * Acts 07 / 08 — four clearly separated 2D texture cards move into one atlas,
- * then the atlas compresses into KTX2. Cards render in front of the 3D scene
- * with depth testing disabled, because they represent material data rather
- * than objects in the world.
+ * Four borderless square textures first scale up directly over their matching
+ * objects, then travel into corresponding atlas quadrants:
+ *
+ *   book R2  | meat R3
+ *   barrel R0| duck R1
+ *
+ * The 2x2 atlas remains in the live scene for KTX2 and batchColor sections.
  */
 const ATLAS_Y = 0.02
-const CARD_START_SCALE = 0.58
-const CARD_END_SCALE = 0.78
+const CARD_START_SCALE = 0.56
 
-/**
- * Screen arrangement requested for the scene:
- *   book ←   meat ↑   duck →   barrel ↓
- *
- * The atlas destination preserves that clockwise order so paths never cross:
- *   book top-left, meat top-right, duck bottom-right, barrel bottom-left.
- */
 const SHEET_SOURCES = [
-    {
-        slot: 0,
-        crew: 0,
-        label: 'barrel',
-        offset: [ 0, - 0.72 ],
-        quadrant: [ - 0.46, - 0.52 ],
-    },
-    {
-        slot: 1,
-        hero: true,
-        label: 'duck · aberration',
-        offset: [ 0.78, 0 ],
-        quadrant: [ 0.46, - 0.52 ],
-    },
-    {
-        slot: 2,
-        crew: 1,
-        label: 'book',
-        offset: [ - 0.78, 0 ],
-        quadrant: [ - 0.46, 0.52 ],
-    },
-    {
-        slot: 3,
-        crew: 2,
-        label: 'meat',
-        offset: [ 0, 0.72 ],
-        quadrant: [ 0.46, 0.52 ],
-    },
+    { slot: 0, crew: 0, label: 'barrel', red: 0, green: 0, quadrant: [ - 0.5, - 0.5 ], bend: [ - 0.16, - 0.08 ] },
+    { slot: 1, hero: true, label: 'duck', red: 1, green: 3, quadrant: [ 0.5, - 0.5 ], bend: [ 0.16, - 0.08 ] },
+    { slot: 2, crew: 1, label: 'book', red: 2, green: 1, quadrant: [ - 0.5, 0.5 ], bend: [ - 0.16, 0.08 ] },
+    { slot: 3, crew: 2, label: 'meat', red: 3, green: 2, quadrant: [ 0.5, 0.5 ], bend: [ 0.16, 0.08 ] },
 ]
 
+const clamp01 = (value) => Math.min(Math.max(value, 0), 1)
 const smooth = (value) =>
 {
-    const t = Math.min(Math.max(value, 0), 1)
+    const t = clamp01(value)
     return t * t * (3 - 2 * t)
 }
-
 const lerp = (a, b, t) => a + (b - a) * t
 
 function quadratic(start, control, end, t)
@@ -75,8 +46,8 @@ export default function AtlasCombine()
     const group = useRef()
     const atlas = useRef()
     const stamp = useRef()
-    const backing = useRef()
     const sheets = useRef([])
+    const redLabels = useRef([])
 
     const maps = useTexture({
         gradient: './textures/gradientPalette.png',
@@ -87,7 +58,7 @@ export default function AtlasCombine()
         aberration: './textures/duck_base_abberation.png',
     })
 
-    const { sheetMaterials, backingMaterial, stampMaterial } = useMemo(() =>
+    const { sheetMaterials, stampMaterial, redMaterials } = useMemo(() =>
     {
         ensureLibrary(maps)
 
@@ -96,9 +67,8 @@ export default function AtlasCombine()
             const texture = source.hero
                 ? textureLibrary.aberration
                 : textureLibrary.crewPaints[source.crew]?.texture
-            const cardTexture = makeTextureCard(texture.image, source.label)
             const material = new THREE.MeshBasicMaterial({
-                map: cardTexture,
+                map: makeSheetTexture(texture.image),
                 transparent: true,
                 opacity: 0,
                 depthTest: false,
@@ -108,13 +78,6 @@ export default function AtlasCombine()
             return material
         })
 
-        const backingMaterial = new THREE.MeshBasicMaterial({
-            color: COLORS.card,
-            transparent: true,
-            opacity: 0,
-            depthTest: false,
-            depthWrite: false,
-        })
         const stampMaterial = new THREE.MeshBasicMaterial({
             map: makeStampTexture(),
             transparent: true,
@@ -123,7 +86,18 @@ export default function AtlasCombine()
             depthWrite: false,
         })
 
-        return { sheetMaterials, backingMaterial, stampMaterial }
+        const redMaterials = SHEET_SOURCES.map((source) =>
+        {
+            return new THREE.MeshBasicMaterial({
+                map: makeIdTexture(`R${ source.red }`, '#c94f43'),
+                transparent: true,
+                opacity: 0,
+                depthTest: false,
+                depthWrite: false,
+            })
+        })
+
+        return { sheetMaterials, stampMaterial, redMaterials }
     }, [maps])
 
     useFrame((state) =>
@@ -131,10 +105,10 @@ export default function AtlasCombine()
         const sheetIn = smooth(params.sheetsIn)
         const fly = smooth(params.atlasFly)
         const chip = smooth(params.atlasChip)
-        const batchStage = smooth(params.batchData)
-        const opacity = sheetIn
+        const batch = smooth(params.batchData)
+        const redIn = smooth(params.batchAtlasR)
 
-        group.current.visible = opacity > 0.002
+        group.current.visible = sheetIn > 0.002
         if(!group.current.visible)
             return
 
@@ -142,12 +116,10 @@ export default function AtlasCombine()
         const halfVisible = (state.viewport.width / 2) / fit
         const atlasX = Math.min(ATLAS_X, halfVisible - 1.08)
 
-        const compressedX = lerp(atlasX, 0.85, chip)
-        const batchX = clampFrameX(params.frameX) - 2.45
-        atlas.current.position.x = lerp(compressedX, batchX, batchStage)
-        atlas.current.position.y = lerp(ATLAS_Y, 1.42, batchStage)
+        atlas.current.position.x = atlasX
+        atlas.current.position.y = ATLAS_Y
         atlas.current.rotation.z = 0
-        atlas.current.scale.setScalar((1 - chip * 0.58) * lerp(1, 0.62, batchStage))
+        atlas.current.scale.setScalar(1 - chip * 0.16)
 
         const frameX = clampFrameX(params.frameX)
         SHEET_SOURCES.forEach((source, index) =>
@@ -157,54 +129,66 @@ export default function AtlasCombine()
                 return
 
             const iso = isoSlotOffset(source.slot)
-            const startX = frameX + iso.x + source.offset[0] - atlas.current.position.x
-            const startY = iso.y + source.offset[1] - atlas.current.position.y
+            const startX = frameX + iso.x - atlasX
+            const startY = iso.y - ATLAS_Y
             const endX = source.quadrant[0]
             const endY = source.quadrant[1]
-
-            // The control point bends outward in the card's own arrow
-            // direction. With the preserved quadrant order, paths remain
-            // disjoint throughout the flight.
-            const controlX = (startX + endX) * 0.5 + source.offset[0] * 0.34
-            const controlY = (startY + endY) * 0.5 + source.offset[1] * 0.34
+            const controlX = (startX + endX) * 0.5 + source.bend[0]
+            const controlY = (startY + endY) * 0.5 + source.bend[1]
 
             sheet.position.x = quadratic(startX, controlX, endX, fly)
             sheet.position.y = quadratic(startY, controlY, endY, fly)
-            sheet.position.z = lerp(1.9, 0.06 + index * 0.006, fly)
-            sheet.scale.setScalar(lerp(CARD_START_SCALE, CARD_END_SCALE, fly))
-            sheetMaterials[index].opacity = opacity
+            sheet.position.z = lerp(1.9, 0.06 + index * 0.004, fly)
+            sheet.scale.setScalar(lerp(CARD_START_SCALE * sheetIn, 1, fly))
+            sheetMaterials[index].opacity = sheetIn
             sheet.renderOrder = 30 + index
+
+            const label = redLabels.current[index]
+            if(label)
+            {
+                label.scale.setScalar(Math.max(redIn, 0.0001))
+                label.visible = redIn > 0.002
+                label.renderOrder = 52
+                redMaterials[index].opacity = redIn
+            }
         })
 
-        const atlasReady = smooth((params.atlasFly - 0.66) / 0.34)
-        backingMaterial.opacity = opacity * atlasReady * 0.96
-        backing.current.visible = backingMaterial.opacity > 0.002
-
-        const stampPop = smooth((params.atlasChip - 0.55) / 0.45)
-        stamp.current.scale.setScalar(Math.max(stampPop, 0.0001))
+        // KTX2 is a single compression beat. During batchColor the badge
+        // moves into the atlas corner so the four R labels remain readable.
+        const stampPop = smooth(chip)
+        stamp.current.position.x = lerp(0, 0.72, batch)
+        stamp.current.position.y = lerp(0, - 0.76, batch)
+        stamp.current.scale.setScalar(Math.max(stampPop * lerp(0.62, 0.27, batch), 0.0001))
         stamp.current.visible = stampPop > 0.01
-        stampMaterial.opacity = opacity
-        stamp.current.renderOrder = 40
+        stampMaterial.opacity = sheetIn
+        stamp.current.renderOrder = 48
     })
 
     return (
         <group ref={ group }>
             <group ref={ atlas } position={ [ 0, ATLAS_Y, 0.55 ] }>
-                <mesh ref={ backing } material={ backingMaterial } position-z={ 0.01 } renderOrder={ 29 }>
-                    <planeGeometry args={ [ 1.93, 2.14 ] } />
-                </mesh>
-
                 { SHEET_SOURCES.map((source, index) =>
                     <mesh
                         key={ source.label }
                         ref={ (instance) => { sheets.current[index] = instance } }
                         material={ sheetMaterials[index] }
                     >
-                        <planeGeometry args={ [ 1, 1.12 ] } />
+                        <planeGeometry args={ [ 1, 1 ] } />
                     </mesh>
                 ) }
 
-                <mesh ref={ stamp } material={ stampMaterial } position={ [ 0, 0, 0.1 ] } rotation-z={ - 0.04 }>
+                { SHEET_SOURCES.map((source, index) =>
+                    <mesh
+                        key={ `red-${ source.label }` }
+                        ref={ (instance) => { redLabels.current[index] = instance } }
+                        material={ redMaterials[index] }
+                        position={ [ source.quadrant[0], source.quadrant[1], 0.12 ] }
+                    >
+                        <planeGeometry args={ [ 0.5, 0.27 ] } />
+                    </mesh>
+                ) }
+
+                <mesh ref={ stamp } material={ stampMaterial } position={ [ 0, 0, 0.1 ] }>
                     <planeGeometry args={ [ 1.5, 0.66 ] } />
                 </mesh>
             </group>
@@ -212,38 +196,13 @@ export default function AtlasCombine()
     )
 }
 
-function makeTextureCard(source, label)
+function makeSheetTexture(source)
 {
     const canvas = document.createElement('canvas')
     canvas.width = 512
-    canvas.height = 574
+    canvas.height = 512
     const context = canvas.getContext('2d')
-
-    context.fillStyle = '#f5f2ed'
-    roundRect(context, 3, 3, 506, 568, 20)
-    context.fill()
-
-    context.strokeStyle = 'rgba(59, 58, 56, 0.34)'
-    context.lineWidth = 3
-    roundRect(context, 5, 5, 502, 564, 18)
-    context.stroke()
-
-    context.save()
-    roundRect(context, 20, 20, 472, 472, 11)
-    context.clip()
-    context.drawImage(source, 20, 20, 472, 472)
-    context.restore()
-
-    context.fillStyle = '#3b3a38'
-    context.font = '500 22px Jost, "Segoe UI", sans-serif'
-    context.textAlign = 'left'
-    context.textBaseline = 'middle'
-    context.fillText(label, 24, 532)
-
-    context.fillStyle = '#e78a2e'
-    context.beginPath()
-    context.arc(476, 532, 6, 0, Math.PI * 2)
-    context.fill()
+    context.drawImage(source, 0, 0, 512, 512)
 
     const texture = new THREE.CanvasTexture(canvas)
     texture.colorSpace = THREE.SRGBColorSpace
@@ -261,17 +220,36 @@ function makeStampTexture()
     context.fillStyle = COLORS.accent
     roundRect(context, 6, 6, 500, 212, 26)
     context.fill()
-
-    context.strokeStyle = 'rgba(255, 255, 255, 0.75)'
-    context.lineWidth = 5
-    roundRect(context, 18, 18, 476, 188, 18)
-    context.stroke()
-
     context.fillStyle = '#faf7f2'
     context.font = '700 108px Jost, "Century Gothic", sans-serif'
     context.textAlign = 'center'
     context.textBaseline = 'middle'
     context.fillText('KTX2', 256, 112)
+
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = THREE.SRGBColorSpace
+    return texture
+}
+
+function makeIdTexture(label, color)
+{
+    const canvas = document.createElement('canvas')
+    canvas.width = 256
+    canvas.height = 128
+    const context = canvas.getContext('2d')
+
+    context.fillStyle = 'rgba(247, 244, 239, 0.94)'
+    roundRect(context, 4, 4, 248, 120, 25)
+    context.fill()
+    context.strokeStyle = color
+    context.lineWidth = 8
+    roundRect(context, 7, 7, 242, 114, 22)
+    context.stroke()
+    context.fillStyle = color
+    context.font = '700 72px Cascadia Code, Consolas, monospace'
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    context.fillText(label, 128, 65)
 
     const texture = new THREE.CanvasTexture(canvas)
     texture.colorSpace = THREE.SRGBColorSpace

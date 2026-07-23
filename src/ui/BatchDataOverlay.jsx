@@ -6,10 +6,10 @@ import { params } from '../scroll/choreography.js'
 import { isoSlotOffset, WORLD } from '../config.js'
 
 const INSTANCES = [
-    { slot: 0, name: 'barrel', rgba: [ 0, 0, 1, 1 ] },
-    { slot: 1, name: 'duck', rgba: [ 1, 3, 2, 1 ] },
-    { slot: 2, name: 'book', rgba: [ 2, 1, 0, 1 ] },
-    { slot: 3, name: 'meat', rgba: [ 3, 2, 3, 1 ] },
+    { slot: 0, name: 'barrel', red: 0, green: 0 },
+    { slot: 1, name: 'duck', red: 1, green: 3 },
+    { slot: 2, name: 'book', red: 2, green: 1 },
+    { slot: 3, name: 'meat', red: 3, green: 2 },
 ]
 
 const clamp01 = (value) => Math.min(Math.max(value, 0), 1)
@@ -18,61 +18,72 @@ const smooth = (value) =>
     const t = clamp01(value)
     return t * t * (3 - 2 * t)
 }
-const lerp = (a, b, t) => a + (b - a) * t
 
+/**
+ * Short batchColor demonstration:
+ * 1. empty RGBA signs appear over the four instances;
+ * 2. R values arrive from the matching atlas quadrants;
+ * 3. large G texture IDs appear on the geometry and fill the second channel.
+ */
 export default function BatchDataOverlay()
 {
     const root = useRef()
-    const encodePanel = useRef()
-    const decodePanel = useRef()
     const tokens = useRef([])
-    const atlasCells = useRef([])
+    const redValues = useRef([])
+    const redEmpty = useRef([])
+    const greenValues = useRef([])
+    const greenEmpty = useRef([])
+    const geometryTags = useRef([])
 
     useEffect(() =>
     {
         const update = () =>
         {
-            const encode = smooth(params.batchData)
-            const decode = smooth(params.batchDecode)
-            const opacity = Math.max(encode, decode)
+            const show = smooth(params.batchData)
+            const red = smooth(params.batchRed)
+            const green = smooth(params.batchGreen)
             const element = root.current
             if(!element)
                 return
 
-            element.style.opacity = opacity
-            element.style.visibility = opacity > 0.002 ? 'visible' : 'hidden'
-            encodePanel.current.style.opacity = 1 - decode
-            encodePanel.current.style.transform = `translateY(${ - 14 * decode }px)`
-            decodePanel.current.style.opacity = decode
-            decodePanel.current.style.transform = `translateY(${ 16 * (1 - decode) }px)`
+            element.style.opacity = Math.max(show, red, green)
+            element.style.visibility = show > 0.002 ? 'visible' : 'hidden'
 
             const { pxPerUnit } = frameFit()
-            const frameX = clampFrameX(WORLD.zooFrameX)
-            const startX = window.innerWidth * 0.76
-            const startY = window.innerHeight * 0.57
+            const frameX = clampFrameX(params.frameX)
 
             INSTANCES.forEach((instance, index) =>
             {
-                const token = tokens.current[index]
-                if(!token)
-                    return
-
-                const progress = smooth(encode * 1.42 - index * 0.13)
                 const offset = isoSlotOffset(instance.slot)
-                const targetX = window.innerWidth / 2 + (frameX + offset.x) * pxPerUnit
-                const targetY = window.innerHeight / 2 - (offset.y + 0.48) * pxPerUnit
-                const spreadY = (index - 1.5) * 48
+                const x = window.innerWidth / 2 + (frameX + offset.x) * pxPerUnit
+                const y = window.innerHeight / 2 - (offset.y + 0.92) * pxPerUnit
+                const token = tokens.current[index]
+                const tag = geometryTags.current[index]
 
-                token.style.transform = `translate(${ lerp(startX, targetX, progress) }px, ${ lerp(startY + spreadY, targetY, progress) }px) translate(-50%, -50%) scale(${ 0.88 + progress * 0.12 })`
-                token.style.opacity = Math.min(encode * 2.5, 1)
-                token.classList.toggle('is-attached', progress > 0.92)
-            })
+                if(token)
+                {
+                    const stagger = smooth(show * 1.35 - index * 0.09)
+                    token.style.transform = `translate(${ x }px, ${ y }px) translate(-50%, -50%) scale(${ 0.82 + stagger * 0.18 })`
+                    token.style.opacity = stagger
+                }
 
-            const activeCell = Math.min(Math.floor(decode * 4.02), 3)
-            atlasCells.current.forEach((cell, index) =>
-            {
-                cell && cell.classList.toggle('is-active', decode > 0.02 && index === activeCell)
-                cell && cell.classList.toggle('is-complete', decode > (index + 1) / 4)
+                if(redValues.current[index])
+                {
+                    redValues.current[index].style.opacity = red
+                    redEmpty.current[index].style.opacity = 1 - red
+                }
+
+                if(greenValues.current[index])
+                {
+                    greenValues.current[index].style.opacity = green
+                    greenEmpty.current[index].style.opacity = 1 - green
+                }
+
+                if(tag)
+                {
+                    tag.style.transform = `translate(${ x }px, ${ window.innerHeight / 2 - offset.y * pxPerUnit }px) translate(-50%, -50%) scale(${ 0.72 + green * 0.28 })`
+                    tag.style.opacity = green
+                }
             })
         }
 
@@ -81,42 +92,7 @@ export default function BatchDataOverlay()
     }, [])
 
     return (
-        <div ref={ root } className="batch-overlay">
-            <section ref={ encodePanel } className="batch-panel batch-panel--encode">
-                <p className="batch-panel-kicker">batchColor → custom data</p>
-                <div className="channel-grid">
-                    <span className="channel channel--r"><b>R</b>geometry ID</span>
-                    <span className="channel channel--g"><b>G</b>texture variant</span>
-                    <span className="channel channel--b"><b>B</b>animation</span>
-                    <span className="channel channel--a"><b>A</b>object state</span>
-                </div>
-                <div className="batch-examples">
-                    <code>R1 G0 → geometry 1 · variant 0</code>
-                    <code>R1 G2 → geometry 1 · variant 2</code>
-                </div>
-                <code className="batch-code">batchedMesh.setColorAt(instanceId, encodedColor);</code>
-            </section>
-
-            <section ref={ decodePanel } className="batch-panel batch-panel--decode">
-                <div>
-                    <p className="batch-panel-kicker">shader lookup</p>
-                    <code className="batch-formula">atlasUv = uv * uvScale + uvOffset;</code>
-                    <p className="batch-panel-detail">R selects geometry transforms. G selects the texture variant.</p>
-                    <p className="batch-panel-detail">Only the encoded color changes. The mesh and material stay untouched.</p>
-                </div>
-                <div className="atlas-diagram" aria-label="Texture atlas regions">
-                    { INSTANCES.map((instance, index) =>
-                        <span
-                            key={ instance.name }
-                            ref={ (element) => { atlasCells.current[index] = element } }
-                            className="atlas-cell"
-                        >
-                            { instance.name }
-                        </span>
-                    ) }
-                </div>
-            </section>
-
+        <div ref={ root } className="batch-overlay batch-overlay--compact">
             { INSTANCES.map((instance, index) =>
                 <div
                     key={ instance.name }
@@ -124,10 +100,31 @@ export default function BatchDataOverlay()
                     className="instance-token"
                 >
                     <span className="instance-token-name">{ instance.name }</span>
-                    <span className="rgba-value rgba-value--r">R{ instance.rgba[0] }</span>
-                    <span className="rgba-value rgba-value--g">G{ instance.rgba[1] }</span>
-                    <span className="rgba-value rgba-value--b">B{ instance.rgba[2] }</span>
-                    <span className="rgba-value rgba-value--a">A{ instance.rgba[3] }</span>
+
+                    <span className="rgba-value rgba-value--r">
+                        R
+                        <i ref={ (element) => { redEmpty.current[index] = element } }>–</i>
+                        <b ref={ (element) => { redValues.current[index] = element } }>{ instance.red }</b>
+                    </span>
+
+                    <span className="rgba-value rgba-value--g">
+                        G
+                        <i ref={ (element) => { greenEmpty.current[index] = element } }>–</i>
+                        <b ref={ (element) => { greenValues.current[index] = element } }>{ instance.green }</b>
+                    </span>
+
+                    <span className="rgba-value rgba-value--b">B–</span>
+                    <span className="rgba-value rgba-value--a">A–</span>
+                </div>
+            ) }
+
+            { INSTANCES.map((instance, index) =>
+                <div
+                    key={ `geometry-${ instance.name }` }
+                    ref={ (element) => { geometryTags.current[index] = element } }
+                    className="geometry-id-tag"
+                >
+                    G{ instance.green }
                 </div>
             ) }
         </div>

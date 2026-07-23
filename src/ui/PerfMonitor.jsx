@@ -5,7 +5,7 @@ import useStage from '../stores/useStage.jsx'
 import { perfProbe } from '../world/perfProbe.js'
 
 /**
- * Act 10 — lives inside the scene-window chrome. Triangles and fps are read
+ * Act 09 — lives inside the scene-window chrome. Triangles and fps are read
  * live from renderer.info after every frame (no React re-renders).
  *
  * TODO(production): draw calls is STAGED as "1" for the draft — the shelf is
@@ -46,7 +46,7 @@ export default function PerfMonitor()
     }, [])
 
     return (
-        <aside className={ `perf ${ step === 10 ? 'is-visible' : '' }` }>
+        <aside className={ `perf ${ step === 9 ? 'is-visible' : '' }` }>
             <p className="perf-title">perf monitor</p>
 
             <div className="perf-main">

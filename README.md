@@ -1,7 +1,7 @@
 # Hand-Painting for Three.js
 
 One-page scroll presentation of the team's hand-painting asset workflow, built for a ~20 min talk.
-Vite + React Three Fiber, one fixed canvas behind an introduction and ten workflow acts.
+Vite + React Three Fiber, one fixed canvas behind an introduction and nine workflow acts.
 
 ## Run
 
@@ -11,20 +11,19 @@ npm run dev      # http://localhost:5173
 npm run build    # static build in dist/
 ```
 
-## The ten workflow acts
+## The nine workflow acts
 
 | # | Act | What happens |
 |---|-----|--------------|
 | 1 | Create the model | White clay + wireframe; the very first scroll already moves the scene |
 | 2 | Gradient palette | Model center, sheet far right; island outlines pack onto the sheet while the **model's colors resolve island-by-island in lockstep** |
-| 3 | Test in the scene | The **level view**: a 45° tilted stage (camera-at-(7,7,7) look) with a full 3D floor grid; the four-piece crew stands on an even grid, hero on slot 2 — everything sized to stay INSIDE the scene window |
-| 4 | Bake | Gradient → wireframe → seams → real UV layout → seams off → baked texture, with short action notes |
-| 5 | Hand paint | The texture moves to the center and enlarges; a sharp noisy paint edge reveals `duck_base` on the sheet and model |
-| 6 | Live updates | The larger dropdown opens and switches immediately: base → pastel → red → aberration |
-| 7 | Combine | Four outlined 2D texture cards sit clear of the models and follow non-crossing paths into one atlas |
-| 8 | Compress | The stable atlas generates mipmaps and compresses to KTX2 with short process notes |
-| 9 | Encode data | The batch color attribute becomes RGBA instance data: geometry, texture variant, animation and state |
-| 10 | Remap UVs | The shader decodes R/G, retrieves atlas transforms and applies the correct atlas region per instance |
+| 3 | Test in the scene | The **level view**: a 45° camera-at-(7,7,7) look with four evenly spaced objects on an invisible floor; the hero tests small, large and final production scales |
+| 4 | Bake | White texture on the left + opaque neutral model → wireframe and seams → real UV layout → baked texture |
+| 5 | Hand paint | The texture moves left-to-center while the hero moves right; a sharp noisy paint edge reveals `duck_base` on the sheet and model |
+| 6 | Live updates | The larger dropdown opens and uses short painterly wipes: base → pastel → red → aberration |
+| 7 | Combine | Four borderless square textures scale up over their matching objects, then merge edge-to-edge into one square atlas |
+| 8 | Compress | The objects and scene remain visible while the atlas scales down slightly and receives a KTX2 badge |
+| 9 | Batched mesh | Neutral wireframe objects receive empty RGBA signs, R geometry IDs from the atlas, then G texture-variant IDs |
 
 ## The unwrap is real (TEXCOORD_1)
 
@@ -54,10 +53,10 @@ the artist side: the baked PNG for this layout and real hand-painted textures
   timeline scrubbed by ScrollTrigger across the whole page. Timeline positions are
   authored in scroll units: **1 unit = one 170vh section**. World components read
   `params` in `useFrame` and write to objects/uniforms imperatively.
-- `src/world/materials/assetMaterial.js` + `src/shaders/asset/*.glsl` — one shader
-  for every model state: `uWhiteMix` (clay), `uMapBase` (gradient/baked),
-  `uReveal` (sharp noisy baked→painted wipe),
-  `uUnwrap` (position→UV morph used by the bake act; seams come free with the UVs).
+- `src/world/materials/assetMaterial.js` — textured states are based on a real
+  unlit `THREE.MeshBasicMaterial`, patched only for UV selection and sharp noisy
+  wipes. Neutral states use separate shaded `THREE.MeshStandardMaterial`
+  layers, and wireframes use ordinary wireframe `MeshBasicMaterial`.
 - `src/world/unwrapLayout.js` — island model from the real `uv1`: islands,
   seams, outlines and the `aUnwrapUv`/`aPackOrder` attributes.
 - `src/world/uvIslands.js` — act-02 line animation: island outlines start in
@@ -65,12 +64,13 @@ the artist side: the baked PNG for this layout and real hand-painted textures
 - `src/world/textureLibrary.js` — swatch registry. Painted variants are currently
   generated from the gradient (hue shift + brush dabs) as placeholders.
 - `src/ui/TextureDropdown.jsx` — act-06 dropdown docked next to the model:
-  scripted immediate selections driven by choreography params, plus the real picker
+  scripted painterly selections driven by choreography params, plus the real picker
   and the OS PNG drop.
-- `src/ui/ProcessNotes.jsx` — short bake, Photoshop and KTX2 action labels.
-- `src/ui/BatchDataOverlay.jsx` — the RGBA buffer and shader UV-remap explanation.
-- `src/ui/Sections.jsx` — DOM copy deck; per-section ScrollTriggers fade the sticky
-  cards and track the active step for the dropdown/perf monitor.
+- `src/ui/ProcessNotes.jsx` — short palette, bake, Photoshop, KTX2 and batchColor labels.
+- `src/ui/BatchDataOverlay.jsx` — empty RGBA signs plus R/G instance IDs.
+- `src/ui/Sections.jsx` — fixed DOM copy deck driven by the same authored
+  scroll-time coordinates as the 3D timeline; it also tracks the active step
+  for the dropdown and performance monitor.
 
 ## Swapping in real textures later
 
@@ -102,10 +102,9 @@ sheet animation. Re-run after re-exporting the model.
 node scripts/verify-geometry.mjs
 ```
 
-Checks the level-view geometry (`ISO` in `config.js`): the FULL floor grid and
-every model stay inside the scene window (top and bottom) at every aspect, the
-four iso slots don't overlap on screen, and the contact shadows sit on the
-grid. Re-run after touching `ISO`, `ISO_SLOTS`, or `ISO_GRID_EXTENT`.
+Checks the level-view geometry (`ISO` in `config.js`): every model stays inside
+the scene window at every tested aspect ratio and the four iso slots do not
+overlap on screen. Re-run after touching `ISO` or `ISO_SLOTS`.
 
 ## Debug hooks (dev only)
 
