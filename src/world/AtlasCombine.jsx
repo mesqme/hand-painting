@@ -15,15 +15,15 @@ import { ATLAS_X, ATLAS_Y, ATLAS_DOCK_X, ATLAS_DOCK_Y, COLORS, isoSlotOffset } f
  *   book R2  | meat R3
  *   barrel R0| duck R1
  *
- * The 2x2 atlas remains in the live scene for KTX2 and batchColor sections.
+ * The 2x2 atlas remains in the live scene for KTX2 and red-channel lookup.
  */
 const CARD_START_SCALE = 0.56
 
 const SHEET_SOURCES = [
-    { slot: 0, crew: 0, label: 'barrel', red: 0, green: 0, quadrant: [ - 0.5, - 0.5 ], bend: [ - 0.16, - 0.08 ] },
-    { slot: 1, hero: true, label: 'duck', red: 1, green: 3, quadrant: [ 0.5, - 0.5 ], bend: [ 0.16, - 0.08 ] },
-    { slot: 2, crew: 1, label: 'book', red: 2, green: 1, quadrant: [ - 0.5, 0.5 ], bend: [ - 0.16, 0.08 ] },
-    { slot: 3, crew: 2, label: 'meat', red: 3, green: 2, quadrant: [ 0.5, 0.5 ], bend: [ 0.16, 0.08 ] },
+    { slot: 0, crew: 0, label: 'barrel', red: 0, quadrant: [ - 0.5, - 0.5 ], bend: [ - 0.16, - 0.08 ] },
+    { slot: 1, hero: true, label: 'duck', red: 1, quadrant: [ 0.5, - 0.5 ], bend: [ 0.16, - 0.08 ] },
+    { slot: 2, crew: 1, label: 'book', red: 2, quadrant: [ - 0.5, 0.5 ], bend: [ - 0.16, 0.08 ] },
+    { slot: 3, crew: 2, label: 'meat', red: 3, quadrant: [ 0.5, 0.5 ], bend: [ 0.16, 0.08 ] },
 ]
 
 const clamp01 = (value) => Math.min(Math.max(value, 0), 1)
@@ -106,8 +106,6 @@ export default function AtlasCombine()
         const chip = smooth(params.atlasChip)
         const inspect = smooth(params.atlasInspect)
         const dock = smooth(params.atlasDock)
-        const redIn = smooth(params.batchAtlasR)
-
         group.current.visible = sheetIn > 0.002
         if(!group.current.visible)
             return
@@ -149,7 +147,9 @@ export default function AtlasCombine()
             const label = redLabels.current[index]
             if(label)
             {
-                label.scale.setScalar(Math.max(redIn, 0.0001))
+                const lookup = clamp01(params.batchLookup - index)
+                const redIn = smooth((lookup - 0.24) / 0.2)
+                label.scale.setScalar(Math.max(0.76 + redIn * 0.24, 0.0001))
                 label.visible = redIn > 0.002
                 label.renderOrder = 52
                 redMaterials[index].opacity = redIn
@@ -157,7 +157,7 @@ export default function AtlasCombine()
         })
 
         // Compression completes the complete 2D dock before section 09:
-        // compact atlas in the lower-left, KTX2 badge at its lower-right.
+        // compact atlas in the lower-right, KTX2 badge at its lower-right.
         const stampPop = smooth(chip)
         stamp.current.position.x = lerp(0, 0.72, stampPop)
         stamp.current.position.y = lerp(0, - 0.76, stampPop)

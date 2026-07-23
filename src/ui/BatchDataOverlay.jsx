@@ -3,13 +3,13 @@ import gsap from 'gsap'
 
 import { frameFit, clampFrameX } from './frameFit.js'
 import { params } from '../scroll/choreography.js'
-import { isoSlotOffset, WORLD } from '../config.js'
+import { isoSlotOffset } from '../config.js'
 
 const INSTANCES = [
-    { slot: 0, name: 'barrel', red: 0, green: 0 },
-    { slot: 1, name: 'duck', red: 1, green: 3 },
-    { slot: 2, name: 'book', red: 2, green: 1 },
-    { slot: 3, name: 'meat', red: 3, green: 2 },
+    { slot: 0, name: 'barrel', red: 0 },
+    { slot: 1, name: 'duck', red: 1 },
+    { slot: 2, name: 'book', red: 2 },
+    { slot: 3, name: 'meat', red: 3 },
 ]
 
 const clamp01 = (value) => Math.min(Math.max(value, 0), 1)
@@ -22,8 +22,8 @@ const smooth = (value) =>
 /**
  * Short batchColor demonstration:
  * 1. empty RGBA signs appear over the four instances;
- * 2. R values arrive from the matching atlas quadrants;
- * 3. large G texture IDs appear on the geometry and fill the second channel.
+ * 2. each geometry receives its R ID;
+ * 3. the matching R value appears on the atlas and fills the instance token.
  */
 export default function BatchDataOverlay()
 {
@@ -31,8 +31,6 @@ export default function BatchDataOverlay()
     const tokens = useRef([])
     const redValues = useRef([])
     const redEmpty = useRef([])
-    const greenValues = useRef([])
-    const greenEmpty = useRef([])
     const geometryTags = useRef([])
 
     useEffect(() =>
@@ -40,13 +38,12 @@ export default function BatchDataOverlay()
         const update = () =>
         {
             const show = smooth(params.batchData)
-            const red = smooth(params.batchRed)
-            const green = smooth(params.batchGreen)
+            const lookup = params.batchLookup
             const element = root.current
             if(!element)
                 return
 
-            element.style.opacity = Math.max(show, red, green)
+            element.style.opacity = show
             element.style.visibility = show > 0.002 ? 'visible' : 'hidden'
 
             const { pxPerUnit } = frameFit()
@@ -59,30 +56,31 @@ export default function BatchDataOverlay()
                 const y = window.innerHeight / 2 - (offset.y + 0.92) * pxPerUnit
                 const token = tokens.current[index]
                 const tag = geometryTags.current[index]
+                const local = clamp01(lookup - index)
+                const tagIn = smooth(local / 0.2)
+                const tagOut = 1 - smooth((local - 0.72) / 0.2)
+                const tagOpacity = tagIn * tagOut
+                const assigned = smooth((local - 0.4) / 0.2)
 
                 if(token)
                 {
                     const stagger = smooth(show * 1.35 - index * 0.09)
-                    token.style.transform = `translate(${ x }px, ${ y }px) translate(-50%, -50%) scale(${ 0.82 + stagger * 0.18 })`
+                    const selectedScale = 1 + tagOpacity * 0.18
+                    token.style.transform = `translate(${ x }px, ${ y }px) translate(-50%, -50%) scale(${ (0.82 + stagger * 0.18) * selectedScale })`
                     token.style.opacity = stagger
+                    token.classList.toggle('is-attached', tagOpacity > 0.08)
                 }
 
                 if(redValues.current[index])
                 {
-                    redValues.current[index].style.opacity = red
-                    redEmpty.current[index].style.opacity = 1 - red
-                }
-
-                if(greenValues.current[index])
-                {
-                    greenValues.current[index].style.opacity = green
-                    greenEmpty.current[index].style.opacity = 1 - green
+                    redValues.current[index].style.opacity = assigned
+                    redEmpty.current[index].style.opacity = 1 - assigned
                 }
 
                 if(tag)
                 {
-                    tag.style.transform = `translate(${ x }px, ${ window.innerHeight / 2 - offset.y * pxPerUnit }px) translate(-50%, -50%) scale(${ 0.72 + green * 0.28 })`
-                    tag.style.opacity = green
+                    tag.style.transform = `translate(${ x }px, ${ window.innerHeight / 2 - offset.y * pxPerUnit }px) translate(-50%, -50%) scale(${ 0.8 + tagOpacity * 0.28 })`
+                    tag.style.opacity = tagOpacity
                 }
             })
         }
@@ -107,12 +105,7 @@ export default function BatchDataOverlay()
                         <b ref={ (element) => { redValues.current[index] = element } }>{ instance.red }</b>
                     </span>
 
-                    <span className="rgba-value rgba-value--g">
-                        G
-                        <i ref={ (element) => { greenEmpty.current[index] = element } }>–</i>
-                        <b ref={ (element) => { greenValues.current[index] = element } }>{ instance.green }</b>
-                    </span>
-
+                    <span className="rgba-value rgba-value--g">G–</span>
                     <span className="rgba-value rgba-value--b">B–</span>
                     <span className="rgba-value rgba-value--a">A–</span>
                 </div>
@@ -124,7 +117,7 @@ export default function BatchDataOverlay()
                     ref={ (element) => { geometryTags.current[index] = element } }
                     className="geometry-id-tag"
                 >
-                    G{ instance.green }
+                    R{ instance.red }
                 </div>
             ) }
         </div>

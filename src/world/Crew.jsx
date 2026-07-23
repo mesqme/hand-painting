@@ -18,14 +18,14 @@ import { finalSlotTransform } from './finalLayout.js'
  *   03  evenly spaced in the level-view scene
  *   06  same gradient scene — the artist changes only the hero texture
  *   07  everyone HOLDS their slot while the texture sheets fly off the models
- *   09  neutral wireframe objects receive compact batchColor IDs
+ *   09  neutral wireframe objects receive sequential red-channel geometry IDs
  */
 // pair indexes into usePairs().crewPairs — [ barrel, book, meat ]
 // entry indexes into textureLibrary.crewPaints (uv0-friendly stand-ins)
 const MEMBERS = [
-    { slot: 0, entry: 0, pair: 'barrel' },
-    { slot: 2, entry: 1, pair: 'book' },
-    { slot: 3, entry: 2, pair: 'meat' },
+    { slot: 0, entry: 0, pair: 'barrel', batchOrder: 0 },
+    { slot: 2, entry: 1, pair: 'book', batchOrder: 2 },
+    { slot: 3, entry: 2, pair: 'meat', batchOrder: 3 },
 ]
 
 const easeOutBack = (t) =>
@@ -110,14 +110,16 @@ export default function Crew()
              */
             const surfaceWipe = clamp01(params.crewSurface * 1.4 - index * 0.12)
             materials[index].depthWrite = surfaceWipe > 0.001
-            const batchColor = smooth(params.batchColor)
             const batchActive = params.batchNeutral > 0.001
+            const batchReveal = smooth(clamp01(
+                (params.batchLookup - member.batchOrder - 0.52) / 0.48
+            ))
 
             updateAssetMaterial(materials[index], {
                 opacity: crewOpacity,
                 reveal: params.crewPaint,
                 whiteMix: batchActive ? params.batchNeutral : 0,
-                clayWipe: batchActive ? batchColor : 0,
+                clayWipe: batchActive ? batchReveal : 0,
                 surfaceWipe,
             })
 
@@ -131,7 +133,7 @@ export default function Crew()
             const animal = animals.current[index]
             if(animal)
             {
-                const amp = smooth(clamp01(params.batchGreen * 1.6 - index * 0.2))
+                const amp = batchReveal
                 const propScale = 1 - final
                 animal.visible = propScale > 0.002
                 animal.scale.setScalar(Math.max(propScale, 0.0001))

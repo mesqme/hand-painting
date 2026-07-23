@@ -35,6 +35,68 @@ const lerpAngle = (from, to, t) =>
 const directionBetween = (from, to) =>
     Math.atan2(to.x - from.x, to.z - from.z)
 
+const SCALE_BAD = new THREE.Color('#cf463c')
+const SCALE_GOOD = new THREE.Color('#3f9865')
+const SCALE_NEUTRAL = new THREE.Color('#585550')
+
+function makeBoxSegments(size)
+{
+    const x = size.x * 0.5
+    const y = size.y * 0.5
+    const z = size.z * 0.5
+    const corners = [
+        [ - x, - y, - z ], [ x, - y, - z ], [ x, y, - z ], [ - x, y, - z ],
+        [ - x, - y, z ], [ x, - y, z ], [ x, y, z ], [ - x, y, z ],
+    ]
+    const edges = [
+        [ 0, 1 ], [ 1, 2 ], [ 2, 3 ], [ 3, 0 ],
+        [ 4, 5 ], [ 5, 6 ], [ 6, 7 ], [ 7, 4 ],
+        [ 0, 4 ], [ 1, 5 ], [ 2, 6 ], [ 3, 7 ],
+    ]
+
+    return edges.flatMap(([ a, b ]) => [ ...corners[a], ...corners[b] ])
+}
+
+function makeVerdictTexture(type, color)
+{
+    const canvas = document.createElement('canvas')
+    canvas.width = 128
+    canvas.height = 128
+    const context = canvas.getContext('2d')
+
+    context.clearRect(0, 0, 128, 128)
+    context.fillStyle = 'rgba(247, 244, 239, 0.96)'
+    context.beginPath()
+    context.arc(64, 64, 48, 0, Math.PI * 2)
+    context.fill()
+    context.strokeStyle = color
+    context.lineWidth = 12
+    context.lineCap = 'round'
+    context.lineJoin = 'round'
+    context.beginPath()
+
+    if(type === 'bad')
+    {
+        context.moveTo(43, 43)
+        context.lineTo(85, 85)
+        context.moveTo(85, 43)
+        context.lineTo(43, 85)
+    }
+    else
+    {
+        context.moveTo(37, 65)
+        context.lineTo(55, 83)
+        context.lineTo(91, 43)
+    }
+
+    context.stroke()
+
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = THREE.SRGBColorSpace
+    texture.needsUpdate = true
+    return texture
+}
+
 /**
  * The hero duck + column. One assembly plays every act: clay model, gradient
  * lookup, seam-cut bake reference, and the hand-painted result with both
@@ -46,6 +108,9 @@ export default function DuckColumnAssembly()
     const duck = useRef()
     const wireColumn = useRef()
     const wireDuck = useRef()
+    const scaleGuide = useRef()
+    const badVerdict = useRef()
+    const goodVerdict = useRef()
     const currentPaint = useRef(null)
     const drag = useRef({ active: false, x: 0, y: 0, pointerId: null })
     const dragRotation = useRef({ x: 0, y: 0 })
@@ -71,7 +136,19 @@ export default function DuckColumnAssembly()
     /**
      * Materials + texture library + seam lines
      */
-    const { material, wireMaterial, seamMaterial, duckSeamLine, columnSeamLine } = useMemo(() =>
+    const {
+        material,
+        wireMaterial,
+        seamMaterial,
+        duckSeamLine,
+        columnSeamLine,
+        scaleBoxMaterial,
+        scaleBoxLine,
+        badVerdictMaterial,
+        goodVerdictMaterial,
+        scaleBoxCenter,
+        verdictPosition,
+    } = useMemo(() =>
     {
         ensureLibrary(maps)
 
@@ -87,11 +164,11 @@ export default function DuckColumnAssembly()
         })
         const wireMaterial = createAssetMaterial({ wireframe: true, flatShade: true, opacity: 0.28 })
 
-        // Constant-width red lines — the color alone marks the seams (no
-        // thickness animation)
+        // The solid material already uses polygon offset, so the authored seam
+        // lines can stay exactly on the mesh without an inflated duplicate.
         const seamMaterial = new LineMaterial({
             color: COLORS.seam,
-            linewidth: 2,
+            linewidth: 3.5,
             transparent: true,
             opacity: 0,
             depthWrite: false,
@@ -107,7 +184,62 @@ export default function DuckColumnAssembly()
         duckSeamLine.renderOrder = 8
         columnSeamLine.renderOrder = 8
 
-        return { material, wireMaterial, seamMaterial, duckSeamLine, columnSeamLine }
+        duckGeometry.computeBoundingBox()
+        columnGeometry.computeBoundingBox()
+        const bounds = duckGeometry.boundingBox.clone().union(columnGeometry.boundingBox)
+        bounds.expandByScalar(0.055)
+        const scaleBoxCenter = bounds.getCenter(new THREE.Vector3())
+        const scaleBoxSize = bounds.getSize(new THREE.Vector3())
+        const verdictPosition = new THREE.Vector3(
+            scaleBoxSize.x * 0.5 + 0.24,
+            scaleBoxSize.y * 0.5 + 0.12,
+            scaleBoxSize.z * 0.5 + 0.06
+        )
+        const scaleBoxMaterial = new LineMaterial({
+            color: SCALE_NEUTRAL,
+            linewidth: 2.25,
+            transparent: true,
+            opacity: 0,
+            depthTest: true,
+            depthWrite: false,
+        })
+        const scaleBoxLine = new LineSegments2(
+            new LineSegmentsGeometry().setPositions(makeBoxSegments(scaleBoxSize)),
+            scaleBoxMaterial
+        )
+        scaleBoxLine.renderOrder = 18
+        scaleBoxLine.frustumCulled = false
+
+        const badVerdictMaterial = new THREE.SpriteMaterial({
+            map: makeVerdictTexture('bad', '#cf463c'),
+            transparent: true,
+            opacity: 0,
+            depthTest: false,
+            depthWrite: false,
+        })
+        const goodVerdictMaterial = new THREE.SpriteMaterial({
+            map: makeVerdictTexture('good', '#3f9865'),
+            transparent: true,
+            opacity: 0,
+            depthTest: false,
+            depthWrite: false,
+        })
+        badVerdictMaterial.toneMapped = false
+        goodVerdictMaterial.toneMapped = false
+
+        return {
+            material,
+            wireMaterial,
+            seamMaterial,
+            duckSeamLine,
+            columnSeamLine,
+            scaleBoxMaterial,
+            scaleBoxLine,
+            badVerdictMaterial,
+            goodVerdictMaterial,
+            scaleBoxCenter,
+            verdictPosition,
+        }
     }, [maps, duckSeams, columnSeams])
 
     /**
@@ -366,12 +498,12 @@ export default function DuckColumnAssembly()
         const baked = params.bakeSweep > 0.001
         uniforms.uMapBase.value = baked ? textureLibrary.baked : textureLibrary.gradient
 
-        const batchColor = smooth(params.batchColor)
         const batchActive = params.batchNeutral > 0.001
+        const batchReveal = smooth(clamp((params.batchLookup - 1.52) / 0.48, 0, 1))
 
         updateAssetMaterial(material, {
             whiteMix: batchActive ? params.batchNeutral : params.whiteMix,
-            clayWipe: batchActive ? batchColor : params.clayWipe,
+            clayWipe: batchActive ? batchReveal : params.clayWipe,
             opacity: params.heroOpacity,
             reveal: params.reveal,
             uvPack: baked ? 0 : params.uvProgress,
@@ -388,6 +520,25 @@ export default function DuckColumnAssembly()
         seamMaterial.resolution.set(state.size.width, state.size.height)
         duckSeamLine.visible = seamMaterial.opacity > 0.002
         columnSeamLine.visible = seamMaterial.opacity > 0.002
+
+        // Act 03 scale validation: a translucent, depth-tested guide that
+        // changes verdict color without scaling independently from the model.
+        const guideOpacity = params.scaleGuide * params.heroOpacity * (1 - final) * 0.58
+        const feedback = smooth(params.scaleFeedback)
+        const status = Math.round(params.scaleStatus)
+        const verdictOpacity = guideOpacity * smooth(feedback * 1.5)
+
+        scaleGuide.current.visible = guideOpacity > 0.002
+        scaleGuide.current.scale.setScalar(1)
+        scaleBoxMaterial.opacity = guideOpacity
+        scaleBoxMaterial.color.copy(
+            status === 1 ? SCALE_BAD : status === 2 ? SCALE_GOOD : SCALE_NEUTRAL
+        )
+        scaleBoxMaterial.resolution.set(state.size.width, state.size.height)
+        badVerdictMaterial.opacity = status === 1 ? verdictOpacity : 0
+        goodVerdictMaterial.opacity = status === 2 ? verdictOpacity : 0
+        badVerdict.current.visible = badVerdictMaterial.opacity > 0.002
+        goodVerdict.current.visible = goodVerdictMaterial.opacity > 0.002
     })
 
     return (
@@ -410,6 +561,23 @@ export default function DuckColumnAssembly()
         >
             <mesh geometry={ columnGeometry } material={ material } renderOrder={ 0 } />
             <mesh ref={ wireColumn } geometry={ columnGeometry } material={ wireMaterial } renderOrder={ 4 } />
+            <group ref={ scaleGuide } position={ scaleBoxCenter.toArray() }>
+                <primitive object={ scaleBoxLine } />
+                <sprite
+                    ref={ badVerdict }
+                    material={ badVerdictMaterial }
+                    position={ verdictPosition.toArray() }
+                    scale={ [ 0.38, 0.38, 1 ] }
+                    renderOrder={ 20 }
+                />
+                <sprite
+                    ref={ goodVerdict }
+                    material={ goodVerdictMaterial }
+                    position={ verdictPosition.toArray() }
+                    scale={ [ 0.38, 0.38, 1 ] }
+                    renderOrder={ 20 }
+                />
+            </group>
 
             <group
                 ref={ duck }
@@ -422,10 +590,10 @@ export default function DuckColumnAssembly()
             >
                 <mesh geometry={ duckGeometry } material={ material } renderOrder={ 0 } />
                 <mesh ref={ wireDuck } geometry={ duckGeometry } material={ wireMaterial } renderOrder={ 4 } />
-                <primitive object={ duckSeamLine } scale={ 1.008 } />
+                <primitive object={ duckSeamLine } />
             </group>
 
-            <primitive object={ columnSeamLine } scale={ 1.008 } />
+            <primitive object={ columnSeamLine } />
         </group>
     )
 }

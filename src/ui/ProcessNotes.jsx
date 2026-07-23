@@ -13,34 +13,31 @@ import {
 
 const BAKE_NOTES = [
     null,
-    { eyebrow: 'BAKE 01', title: 'Create seams', detail: 'Mark the UV cuts directly on the neutral model.' },
-    { eyebrow: 'BAKE 02', title: 'Display UV islands', detail: 'Check the authored TEXCOORD_1 layout.' },
-    { eyebrow: 'BAKE 03', title: 'Bake', detail: 'Transfer the gradient colors into the baked texture.' },
+    { title: 'Create seams', detail: 'Make cuts to form simple-shaped islands.' },
+    { title: 'Bake', detail: 'Transfer the gradient colors into the baked texture.' },
 ]
 
 const PAINT_NOTES = [
     null,
-    { eyebrow: 'PHOTOSHOP', title: 'Moving to Photoshop', detail: 'Bring the baked texture forward as the main working asset.' },
-    { eyebrow: 'PHOTOSHOP', title: 'Paint the baked texture', detail: 'Paint the 2D sheet and check the same update on the model.' },
+    { title: 'Moving to Photoshop', detail: 'Or use any comfortable software for painting.' },
+    { title: 'Paint the baked texture', detail: 'Paint the 2D sheet and check the same update on the model.' },
 ]
 
 const KTX_NOTES = [
     null,
-    { eyebrow: 'KTX2', title: 'Compress the atlas', detail: 'Keep one square texture and prepare it for GPU delivery.' },
+    { title: 'Compress the atlas', detail: 'Keep one square texture and prepare it for GPU delivery.' },
 ]
 
 const COMBINE_NOTE = {
-    eyebrow: 'ATLAS',
     title: 'Combine the textures',
     detail: 'Merge four square sheets into one square atlas.',
 }
 
 const BATCH_NOTES = [
     null,
-    { eyebrow: 'RED CHANNEL', title: 'Assign materials', detail: 'Store each atlas material ID in the red channel.' },
-    { eyebrow: 'GREEN CHANNEL', title: 'Assign geometries', detail: 'Store each geometry ID in the green channel.' },
-    { eyebrow: 'B + A CHANNELS', title: 'Reserve custom data', detail: 'Use the remaining channels for state, animation or interaction.' },
-    { eyebrow: 'BATCHED MESH', title: 'One draw call', detail: 'Display multiple geometries and materials with one draw call.' },
+    { title: 'Match geometry to atlas', detail: 'Use each geometry ID to retrieve its UV scale and offset from the atlas.' },
+    { title: 'Reserve G, B and A', detail: 'Use the remaining channels for more textures, animation, state or interaction.' },
+    { title: 'One draw call', detail: 'Display multiple geometries and materials with one draw call.' },
 ]
 
 const smooth = (value) =>
@@ -53,7 +50,6 @@ const lerp = (a, b, t) => a + (b - a) * t
 export default function ProcessNotes()
 {
     const root = useRef()
-    const eyebrow = useRef()
     const title = useRef()
     const detail = useRef()
     const lastKey = useRef('')
@@ -68,7 +64,6 @@ export default function ProcessNotes()
             if(params.palettePhase > 0)
             {
                 note = {
-                    eyebrow: 'PALETTE',
                     title: 'Position UVs',
                     detail: 'Move each model part onto the required gradient color.',
                 }
@@ -104,6 +99,7 @@ export default function ProcessNotes()
             if(!element)
                 return
 
+            const noteOpacity = smooth(params.noteOpacity)
             if(!note)
             {
                 element.style.opacity = 0
@@ -115,11 +111,20 @@ export default function ProcessNotes()
             const key = `${ mode }-${ note.title }`
             if(key !== lastKey.current)
             {
-                eyebrow.current.textContent = note.eyebrow
                 title.current.textContent = note.title
                 detail.current.textContent = note.detail
                 element.dataset.mode = mode
                 lastKey.current = key
+            }
+
+            if(mode === 'batch')
+            {
+                element.style.left = 'clamp(4vw, calc(50vw - 400px - 21.5vh), 12vw)'
+                element.style.top = '43vh'
+                element.style.transform = 'none'
+                element.style.opacity = noteOpacity
+                element.style.visibility = noteOpacity > 0.002 ? 'visible' : 'hidden'
+                return
             }
 
             const { pxPerUnit } = frameFit()
@@ -127,7 +132,13 @@ export default function ProcessNotes()
             let worldY = params.paletteY
             let halfHeight = WORLD.paletteSize * params.paletteScale * 0.54
 
-            if(mode === 'combine')
+            if(mode === 'bake' && Math.round(params.bakePhase) === 1)
+            {
+                worldX = params.heroX
+                worldY = params.heroY
+                halfHeight = WORLD.assemblyHeight * params.heroScale * 0.5
+            }
+            else if(mode === 'combine')
             {
                 worldX = ATLAS_X
                 worldY = ATLAS_Y
@@ -141,28 +152,11 @@ export default function ProcessNotes()
                 worldY = lerp(ATLAS_Y, ATLAS_DOCK_Y, dock)
                 halfHeight = lerp(1.05, 0.56, chip)
             }
-            else if(mode === 'batch')
-            {
-                const phase = Math.round(params.batchPhase)
-                worldX = params.frameX
-                worldY = - 1.22
-                halfHeight = 0
-
-                if(phase === 1)
-                {
-                    const chip = smooth(params.atlasChip)
-                    const inspect = smooth(params.atlasInspect)
-                    worldX = ATLAS_DOCK_X
-                    worldY = ATLAS_DOCK_Y
-                    halfHeight = lerp(1, 0.55, chip) * lerp(1, 1.65, inspect)
-                }
-            }
-
             element.style.left = `${ window.innerWidth / 2 + worldX * pxPerUnit }px`
             element.style.top = `${ window.innerHeight / 2 - worldY * pxPerUnit + halfHeight * pxPerUnit + 12 }px`
             element.style.transform = 'translateX(-50%)'
-            element.style.opacity = 1
-            element.style.visibility = 'visible'
+            element.style.opacity = noteOpacity
+            element.style.visibility = noteOpacity > 0.002 ? 'visible' : 'hidden'
         }
 
         gsap.ticker.add(update)
@@ -171,7 +165,6 @@ export default function ProcessNotes()
 
     return (
         <aside ref={ root } className="process-note">
-            <p ref={ eyebrow } className="process-note-eyebrow" />
             <p ref={ title } className="process-note-title" />
             <p ref={ detail } className="process-note-detail" />
         </aside>
