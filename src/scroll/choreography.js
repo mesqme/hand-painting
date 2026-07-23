@@ -40,7 +40,6 @@ export const params = {
     heroStanding: 0,
     whiteMix: 0,
     clayWipe: 0,
-    neutralOpacity: 0,
     wireOpacity: 0,
     reveal: 1,
     heroSurface: 1,
@@ -66,7 +65,6 @@ export const params = {
     // Crew (the three non-hero members, acts 03/06/07/08/09)
     crewVisible: 0,
     crewPaint: 0,
-    crewNeutral: 0,
     crewSurface: 1,
     crewWire: 0,
 
@@ -79,6 +77,9 @@ export const params = {
     sheetsIn: 0,
     atlasFly: 0,
     atlasChip: 0,
+    atlasInspect: 0,
+    atlasDock: 0,
+    combinePhase: 0,
     ktxPhase: 0,
 
     // Batched-mesh explanation (three substeps inside act 09)
@@ -87,6 +88,12 @@ export const params = {
     batchRed: 0,
     batchGreen: 0,
     batchPhase: 0,
+    batchNeutral: 0,
+    batchColor: 0,
+    perfVisible: 0,
+
+    // Final credits composition
+    finalVisible: 0,
 
     // Scene-preview window
     frameOpacity: 0,
@@ -109,7 +116,7 @@ const heroIso = (frameX) =>
     }
 }
 
-const heroCenter = { heroX: 0, heroY: 0, heroZ: 0, heroRotX: CENTER_TILT, heroRotY: CENTER_YAW, heroScale: 1 }
+const heroCenter = { heroX: 0.48, heroY: 0, heroZ: 0, heroRotX: CENTER_TILT, heroRotY: CENTER_YAW, heroScale: 1 }
 
 /**
  * Master timeline
@@ -131,31 +138,30 @@ export function buildChoreography()
     /**
      * 00 → 01 — finished teaser to neutral model.
      */
-    tl.to(params, {
-        heroX: WORLD.heroLeftX + 0.28,
-        heroScale: 1,
-        heroRotY: - 0.28,
-        duration: 0.38,
-    }, 0.02)
-    tl.to(params, { whiteMix: 1, neutralOpacity: 1, duration: 0.3 }, 0.04)
-    tl.to(params, { wireOpacity: 0.28, duration: 0.26 }, 0.08)
-    tl.to(params, { reveal: 0, duration: 0.22, ease: 'none' }, 0.16)
-
-    /**
-     * 01 → 02 — gradient palette and authored UV positioning.
-     */
+    // One uninterrupted move from the painted intro to the palette pose.
+    // Section 01 is a short label inside this journey, not a stopping point.
     tl.to(params, {
         heroX: 0,
         heroScale: 1,
         heroRotY: 0.42,
-        duration: 0.5,
-    }, 1.06)
-    tl.to(params, { whiteMix: 0, neutralOpacity: 0, duration: 0.3 }, 1.12)
-    tl.to(params, { wireOpacity: 0, duration: 0.26 }, 1.12)
-    tl.to(params, { paletteOpacity: 1, duration: 0.28, ease: 'power2.out' }, 1.24)
-    tl.to(params, { uvLines: 1, duration: 0.22 }, 1.34)
-    tl.set(params, { palettePhase: 1 }, 1.4)
-    tl.to(params, { uvProgress: 1, duration: 0.92, ease: 'power1.inOut' }, 1.48)
+        duration: 1.02,
+        ease: 'power1.inOut',
+    }, 0.02)
+    tl.to(params, { whiteMix: 1, duration: 0.24 }, 0.1)
+    tl.to(params, { wireOpacity: 0.36, duration: 0.22 }, 0.16)
+    // Change the hidden source only once the clay is fully opaque, avoiding a
+    // visible painted-to-gradient flash during the intro handoff.
+    tl.set(params, { reveal: 0 }, 0.38)
+    tl.to(params, { whiteMix: 0, duration: 0.26 }, 0.5)
+    tl.to(params, { wireOpacity: 0, duration: 0.24 }, 0.62)
+
+    /**
+     * 01 → 02 — gradient palette and authored UV positioning.
+     */
+    tl.to(params, { paletteOpacity: 1, duration: 0.28, ease: 'power2.out' }, 0.86)
+    tl.to(params, { uvLines: 1, duration: 0.22 }, 0.96)
+    tl.set(params, { palettePhase: 1 }, 1.02)
+    tl.to(params, { uvProgress: 1, duration: 1.18, ease: 'power1.inOut' }, 1.1)
     tl.set(params, { palettePhase: 0 }, 2.5)
 
     /**
@@ -167,14 +173,14 @@ export function buildChoreography()
     tl.set(params, { frameX: WORLD.testFrameX, crewPaint: 0 }, 2.62)
     tl.to(params, { frameOpacity: 1, duration: 0.3, ease: 'power2.out' }, 2.64)
     tl.to(params, { crewVisible: 1, duration: 0.34, ease: 'power2.out' }, 2.72)
-    tl.set(params, { heroStanding: 1 }, 3)
+    tl.to(params, { heroStanding: 1, duration: 0.42, ease: 'power1.inOut' }, 2.64)
 
     /**
      * 03 — test three candidate scales before settling on the production size.
      */
-    tl.to(params, { heroScale: ISO.scale * 0.84, duration: 0.15, ease: 'power1.inOut' }, 3.08)
-    tl.to(params, { heroScale: ISO.scale * 1.16, duration: 0.18, ease: 'power1.inOut' }, 3.25)
-    tl.to(params, { heroScale: ISO.scale, duration: 0.15, ease: 'power1.inOut' }, 3.45)
+    tl.to(params, { heroScale: ISO.scale * 0.78, duration: 0.26, ease: 'sine.inOut' }, 2.94)
+    tl.to(params, { heroScale: ISO.scale * 1.2, duration: 0.28, ease: 'sine.inOut' }, 3.22)
+    tl.to(params, { heroScale: ISO.scale, duration: 0.24, ease: 'sine.inOut' }, 3.5)
 
     /**
      * 03 → 04 — the frame, crew and hero transition together. The scene uses
@@ -182,7 +188,7 @@ export function buildChoreography()
      */
     tl.to(params, { crewVisible: 0, duration: 0.22 }, 3.62)
     tl.to(params, { frameOpacity: 0, duration: 0.22 }, 3.62)
-    tl.set(params, { heroStanding: 0 }, 3.62)
+    tl.to(params, { heroStanding: 0, duration: 0.32, ease: 'power1.inOut' }, 3.58)
     tl.to(params, { ...heroCenter, duration: 0.42 }, 3.62)
 
     /**
@@ -196,7 +202,7 @@ export function buildChoreography()
         paletteScale: 1,
     }, 3.76)
     tl.to(params, { paletteOpacity: 1, duration: 0.24, ease: 'power2.out' }, 3.76)
-    tl.to(params, { whiteMix: 1, neutralOpacity: 1, clayWipe: 0, duration: 0.2 }, 3.78)
+    tl.to(params, { whiteMix: 1, clayWipe: 0, duration: 0.2 }, 3.78)
     tl.to(params, { wireOpacity: 0.32, duration: 0.18 }, 3.82)
 
     tl.set(params, { bakePhase: 1 }, 4.04)
@@ -206,14 +212,13 @@ export function buildChoreography()
     tl.set(params, { bakePhase: 2 }, 4.3)
 
     tl.to(params, { seamOpacity: 0, duration: 0.16 }, 4.56)
-    tl.to(params, { neutralOpacity: 0, duration: 0.1 }, 4.58)
     tl.set(params, { bakePhase: 3 }, 4.7)
     tl.to(params, { bakeSweep: 1, duration: 0.48, ease: 'power1.inOut' }, 4.71)
     tl.to(params, { bakeSheetClear: 0, duration: 0.48, ease: 'power1.inOut' }, 4.71)
     tl.to(params, { clayWipe: 1, duration: 0.48, ease: 'power1.inOut' }, 4.71)
     tl.to(params, { wireOpacity: 0, duration: 0.18 }, 5.02)
     tl.to(params, { sheetWire: 0, duration: 0.18 }, 5.04)
-    tl.set(params, { bakePhase: 0, whiteMix: 0, neutralOpacity: 0, clayWipe: 0 }, 5.2)
+    tl.set(params, { bakePhase: 0, whiteMix: 0, clayWipe: 0 }, 5.2)
 
     /**
      * 05 — the bake sheet travels from left to center while the hero makes
@@ -249,7 +254,7 @@ export function buildChoreography()
     }, 6.28)
     tl.to(params, { frameOpacity: 1, duration: 0.24, ease: 'power2.out' }, 6.36)
     tl.to(params, { crewVisible: 1, duration: 0.24, ease: 'power2.out' }, 6.46)
-    tl.set(params, { heroStanding: 1 }, 6.68)
+    tl.to(params, { heroStanding: 1, duration: 0.4, ease: 'power1.inOut' }, 6.28)
 
     /**
      * 06 — open the larger dropdown and wipe quickly through
@@ -267,6 +272,7 @@ export function buildChoreography()
      * 07 — four square image sheets align with their assets, shed their
      * temporary outlines, and merge edge-to-edge into one square atlas.
      */
+    tl.set(params, { combinePhase: 1 }, 7.88)
     tl.to(params, { sheetsIn: 1, duration: 0.26, ease: 'power2.out' }, 7.9)
     tl.to(params, { atlasFly: 1, duration: 0.5, ease: 'power1.inOut' }, 8.12)
 
@@ -275,8 +281,10 @@ export function buildChoreography()
      * one simple scale change plus the KTX2 badge.
      */
     tl.set(params, { ktxPhase: 1 }, 8.72)
-    tl.to(params, { atlasChip: 1, duration: 0.34, ease: 'power2.inOut' }, 8.74)
-    tl.set(params, { ktxPhase: 0 }, 9.24)
+    tl.set(params, { combinePhase: 0 }, 8.72)
+    tl.to(params, { atlasDock: 1, duration: 0.26, ease: 'power2.inOut' }, 8.72)
+    tl.to(params, { atlasChip: 1, duration: 0.28, ease: 'power2.inOut' }, 8.8)
+    tl.set(params, { ktxPhase: 0 }, 9.16)
 
     /**
      * 09 — neutral wireframe scene + compact batchColor demonstration:
@@ -284,25 +292,77 @@ export function buildChoreography()
      */
     tl.set(params, {
         batchPhase: 1,
-        crewNeutral: 0,
         crewSurface: 1,
-        crewWire: 0.3,
+        crewWire: 0.2,
         heroSurface: 1,
-        wireOpacity: 0.3,
+        wireOpacity: 0.2,
+        batchNeutral: 0,
+        batchColor: 0,
+        perfVisible: 0,
     }, 9.28)
-    tl.to(params, { neutralOpacity: 1, crewNeutral: 1, duration: 0.2 }, 9.28)
-    tl.to(params, { batchData: 1, duration: 0.16, ease: 'power2.out' }, 9.4)
+    tl.to(params, { batchNeutral: 1, duration: 0.18, ease: 'power1.inOut' }, 9.28)
+    tl.set(params, { crewPaint: 1 }, 9.48)
+    tl.to(params, { batchData: 1, duration: 0.18, ease: 'power2.out' }, 9.46)
 
-    tl.set(params, { batchPhase: 2 }, 9.56)
-    tl.to(params, { batchAtlasR: 1, duration: 0.16, ease: 'power2.out' }, 9.56)
-    tl.to(params, { batchRed: 1, duration: 0.16, ease: 'power1.inOut' }, 9.68)
+    // R: enlarge the atlas, explain material assignment, then fill values.
+    tl.to(params, { atlasInspect: 1, duration: 0.24, ease: 'power2.out' }, 9.5)
+    tl.to(params, { batchAtlasR: 1, duration: 0.2, ease: 'power2.out' }, 9.72)
+    tl.to(params, { batchRed: 1, duration: 0.24, ease: 'power1.inOut' }, 9.94)
 
-    tl.set(params, { batchPhase: 3 }, 9.84)
-    tl.to(params, { batchGreen: 1, duration: 0.16, ease: 'power2.out' }, 9.84)
+    // Reset the atlas before moving attention to geometry.
+    tl.set(params, { batchPhase: 0 }, 10.18)
+    tl.to(params, {
+        atlasInspect: 0,
+        batchAtlasR: 0,
+        duration: 0.22,
+        ease: 'power2.inOut',
+    }, 10.18)
 
-    // Pin the timeline length to the exact scroll span so every act, including
-    // the last one, receives one complete scroll unit.
-    tl.set(params, { batchGreen: 1 }, SCROLL_END)
+    // G: highlight geometry wireframes, explain the channel, then fill values.
+    tl.set(params, { batchPhase: 2 }, 10.42)
+    tl.to(params, { crewWire: 0.62, wireOpacity: 0.62, duration: 0.22 }, 10.42)
+    tl.to(params, { batchGreen: 1, duration: 0.26, ease: 'power2.out' }, 10.68)
+
+    // Return wireframes to normal weight and reserve B/A.
+    tl.to(params, { crewWire: 0.2, wireOpacity: 0.2, duration: 0.2 }, 10.94)
+    tl.set(params, { batchPhase: 3 }, 10.96)
+
+    // Apply all materials together, then clear the explanatory furniture.
+    tl.set(params, { batchPhase: 0 }, 11.16)
+    tl.to(params, {
+        batchColor: 1,
+        crewWire: 0,
+        wireOpacity: 0,
+        sheetsIn: 0,
+        batchData: 0,
+        batchRed: 0,
+        batchGreen: 0,
+        duration: 0.28,
+        ease: 'power1.inOut',
+    }, 11.16)
+
+    // Only the colored scene and one-draw-call proof remain.
+    tl.set(params, { batchPhase: 4 }, 11.48)
+    tl.to(params, { perfVisible: 1, duration: 0.2, ease: 'power2.out' }, 11.48)
+
+    /**
+     * 10 — clear the explanatory UI and hand off to the credits vignette.
+     */
+    tl.to(params, {
+        frameOpacity: 0,
+        batchData: 0,
+        batchAtlasR: 0,
+        batchRed: 0,
+        batchGreen: 0,
+        sheetsIn: 0,
+        perfVisible: 0,
+        duration: 0.24,
+    }, 11.76)
+    tl.set(params, { batchPhase: 0, ktxPhase: 0 }, 11.8)
+    tl.to(params, { finalVisible: 1, duration: 0.42, ease: 'power2.inOut' }, 11.8)
+
+    // Pin the timeline length to the exact scroll span.
+    tl.set(params, { finalVisible: 1 }, SCROLL_END)
 
     // Dev-only hook for automated checks
     if(import.meta.env.DEV)

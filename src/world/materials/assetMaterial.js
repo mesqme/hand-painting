@@ -3,13 +3,10 @@ import * as THREE from 'three'
 import { COLORS, WORLD } from '../../config.js'
 
 /**
- * Textured assets use a real MeshBasicMaterial as their foundation. The small
- * onBeforeCompile patch only adds the authored UV selection and presentation
- * wipes; it does not add lighting, so gradient and painted colors remain
- * unlit and match the source images.
- *
- * Neutral clay is a separate MeshStandardMaterial owned by the scene
- * components. Wire overlays use an ordinary wireframe MeshBasicMaterial.
+ * Textured assets use a real MeshBasicMaterial as their foundation. Gradient
+ * and painted colors therefore remain unlit and match the source images. The
+ * same shader supplies a small normal-based clay value only while uWhiteMix is
+ * active, avoiding a second coincident Standard-material surface.
  */
 export function createAssetMaterial(options = {})
 {
@@ -164,7 +161,12 @@ export function createAssetMaterial(options = {})
 
                 float assetClayReveal = assetWipe(uClayWipe, assetPaintCoordinate);
                 float assetClayAmount = uWhiteMix * (1.0 - assetClayReveal);
-                assetAlbedo = mix(assetAlbedo, vec3(0.955, 0.945, 0.925), assetClayAmount);
+                // MeshBasicMaterial does not always compile a normal path.
+                // Keep clay shading deterministic and unlit by deriving a
+                // gentle value ramp from local height instead of normals.
+                float assetClayLight = 0.79 + assetHeight * 0.17;
+                vec3 assetClay = vec3(0.965, 0.952, 0.928) * assetClayLight;
+                assetAlbedo = mix(assetAlbedo, assetClay, assetClayAmount);
 
                 float assetSurfaceMask = assetWipe(uSurfaceWipe, assetPaintCoordinate);
                 float assetFinalAlpha = uOpacity * assetSurfaceMask;
@@ -173,7 +175,7 @@ export function createAssetMaterial(options = {})
             )
     }
 
-    material.customProgramCacheKey = () => 'asset-basic-material-v3'
+    material.customProgramCacheKey = () => 'asset-basic-material-v5'
     return material
 }
 

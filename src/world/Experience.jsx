@@ -52,8 +52,11 @@ export default function Experience()
                 <Crew />
                 <DuckColumnAssembly />
                 <PalettePlane />
-                <AtlasCombine />
             </group>
+
+            { /* The atlas is a screen-space reference plane: it shares the
+                 responsive fit, but deliberately ignores 3D pointer parallax. */ }
+            <AtlasCombine />
         </>
     )
 }

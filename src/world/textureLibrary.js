@@ -74,12 +74,12 @@ export function ensureLibrary(maps)
 
     textureLibrary.aberration = textureLibrary.entries.find((entry) => entry.id === 'aberration')?.texture ?? base
 
-    // Crew / atlas stand-ins — hue-shifted gradients that still read on uv0
-    // (crew meshes don't share the duck's uv1 unwrap)
+    // Temporary crew / atlas stand-ins. Keep one slot per future hand-painted
+    // asset, but use the unchanged production gradient until those maps arrive.
     textureLibrary.crewPaints = [
-        { id: 'crew-warm', texture: makeCrewPaint(gradient, 'hue-rotate(-32deg) saturate(1.65) brightness(1.05)') },
-        { id: 'crew-moss', texture: makeCrewPaint(gradient, 'hue-rotate(120deg) saturate(1.05) brightness(0.97)') },
-        { id: 'crew-dusk', texture: makeCrewPaint(gradient, 'hue-rotate(225deg) saturate(1.2) brightness(0.9)') },
+        { id: 'crew-barrel', texture: gradient },
+        { id: 'crew-book', texture: gradient },
+        { id: 'crew-meat', texture: gradient },
     ]
 
     pushSwatches()
@@ -165,44 +165,6 @@ function pushSwatches()
         }),
     ]
     useStage.getState().setSwatches(swatches)
-}
-
-function makeCrewPaint(gradient, filter)
-{
-    const canvas = paintVariantCanvas(gradient.image, filter)
-    return prepareMapTexture(new THREE.CanvasTexture(canvas))
-}
-
-function paintVariantCanvas(image, filter)
-{
-    const canvas = document.createElement('canvas')
-    canvas.width = 1024
-    canvas.height = 1024
-    const context = canvas.getContext('2d')
-
-    context.filter = filter
-    context.drawImage(image, 0, 0, 1024, 1024)
-    context.filter = 'none'
-
-    for(let i = 0; i < 170; i++)
-    {
-        const x = Math.random() * 1024
-        const y = Math.random() * 1024
-        const radiusX = 14 + Math.random() * 56
-        const radiusY = radiusX * (0.35 + Math.random() * 0.5)
-        const rotation = Math.random() * Math.PI
-
-        context.globalAlpha = 0.04 + Math.random() * 0.05
-        context.globalCompositeOperation = Math.random() < 0.5 ? 'multiply' : 'screen'
-        context.fillStyle = Math.random() < 0.5 ? '#3a3630' : '#ffffff'
-        context.beginPath()
-        context.ellipse(x, y, radiusX, radiusY, rotation, 0, Math.PI * 2)
-        context.fill()
-    }
-    context.globalAlpha = 1
-    context.globalCompositeOperation = 'source-over'
-
-    return canvas
 }
 
 function makeThumb(source)

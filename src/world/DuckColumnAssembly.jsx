@@ -12,10 +12,28 @@ import { createAssetMaterial, updateAssetMaterial } from './materials/assetMater
 import { ensureLibrary, getTextureById, getPaintedDefault, textureLibrary } from './textureLibrary.js'
 import useStage from '../stores/useStage.jsx'
 import { params } from '../scroll/choreography.js'
-import { COLORS } from '../config.js'
+import { clampFrameX } from '../ui/frameFit.js'
+import { COLORS, HERO_SLOT, ISO } from '../config.js'
+import { finalDuckOffset, finalSlotTransform } from './finalLayout.js'
+import { duckQuackAnchor } from './duckQuackAnchor.js'
 
 const PAINT_IDS = [ 'base', 'pastel', 'red', 'aberration' ]
+const FINAL_ORDER = [ HERO_SLOT, 0, 2, 3 ]
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max)
+const lerp = (a, b, t) => a + (b - a) * t
+const smooth = (value) =>
+{
+    const t = clamp(value, 0, 1)
+    return t * t * (3 - 2 * t)
+}
+const lerpAngle = (from, to, t) =>
+{
+    const delta = Math.atan2(Math.sin(to - from), Math.cos(to - from))
+    return from + delta * t
+}
+// Align the authored duck with its travel direction in the finale.
+const directionBetween = (from, to) =>
+    Math.atan2(to.x - from.x, to.z - from.z)
 
 /**
  * The hero duck + column. One assembly plays every act: clay model, gradient
@@ -26,13 +44,14 @@ export default function DuckColumnAssembly()
 {
     const group = useRef()
     const duck = useRef()
-    const neutralColumn = useRef()
-    const neutralDuck = useRef()
     const wireColumn = useRef()
     const wireDuck = useRef()
     const currentPaint = useRef(null)
     const drag = useRef({ active: false, x: 0, y: 0, pointerId: null })
     const dragRotation = useRef({ x: 0, y: 0 })
+    const finalStart = useRef(null)
+    const lastLanding = useRef(- 1)
+    const projectedDuck = useRef(new THREE.Vector3())
 
     const { duckGeometry, columnGeometry, duckSeams, columnSeams } = usePairs()
     const maps = useTexture({
@@ -43,11 +62,16 @@ export default function DuckColumnAssembly()
         red: './textures/duck_red.png',
         aberration: './textures/duck_base_abberation.png',
     })
+    const duckCenter = useMemo(() =>
+    {
+        duckGeometry.computeBoundingBox()
+        return duckGeometry.boundingBox.getCenter(new THREE.Vector3())
+    }, [duckGeometry])
 
     /**
      * Materials + texture library + seam lines
      */
-    const { material, neutralMaterial, wireMaterial, seamMaterial, duckSeamLine, columnSeamLine } = useMemo(() =>
+    const { material, wireMaterial, seamMaterial, duckSeamLine, columnSeamLine } = useMemo(() =>
     {
         ensureLibrary(maps)
 
@@ -60,17 +84,6 @@ export default function DuckColumnAssembly()
             mapPaintB: painted,
             whiteMix: 1,
             uvPack: 0,
-        })
-        const neutralMaterial = new THREE.MeshStandardMaterial({
-            color: 0xf1ede6,
-            roughness: 0.86,
-            metalness: 0,
-            flatShading: true,
-            transparent: true,
-            opacity: 0,
-            polygonOffset: true,
-            polygonOffsetFactor: 1,
-            polygonOffsetUnits: 1,
         })
         const wireMaterial = createAssetMaterial({ wireframe: true, flatShade: true, opacity: 0.28 })
 
@@ -94,7 +107,7 @@ export default function DuckColumnAssembly()
         duckSeamLine.renderOrder = 8
         columnSeamLine.renderOrder = 8
 
-        return { material, neutralMaterial, wireMaterial, seamMaterial, duckSeamLine, columnSeamLine }
+        return { material, wireMaterial, seamMaterial, duckSeamLine, columnSeamLine }
     }, [maps, duckSeams, columnSeams])
 
     /**
@@ -183,25 +196,127 @@ export default function DuckColumnAssembly()
     useFrame((state) =>
     {
         const elapsed = state.clock.elapsedTime
+        const final = smooth(params.finalVisible)
+        const frameX = clampFrameX(params.frameX)
+        const finalTransform = finalSlotTransform(HERO_SLOT, frameX, final)
+        const idle = Math.sin(elapsed * 0.6) * 0.03 * (1 - params.heroStanding) * (1 - final)
 
-        group.current.position.x = params.heroX
-        // The idle bob fades out while standing on a scene-window floor
-        group.current.position.y = params.heroY + Math.sin(elapsed * 0.6) * 0.03 * (1 - params.heroStanding)
-        group.current.position.z = params.heroZ
-        group.current.scale.setScalar(params.heroScale)
+        group.current.position.x = lerp(params.heroX, finalTransform.x, final)
+        group.current.position.y = lerp(params.heroY + idle, finalTransform.y, final)
+        group.current.position.z = lerp(params.heroZ, finalTransform.z, final)
+        group.current.scale.setScalar(lerp(params.heroScale, finalTransform.scale, final))
         group.current.visible = params.heroOpacity > 0.002
 
-        // Scroll turns the model gently (pitch joins the level view); a slow
-        // drift keeps it alive in between
-        group.current.rotation.x = params.heroRotX + dragRotation.current.x
-        group.current.rotation.y = params.heroRotY
-            + params.heroSpinY
-            + dragRotation.current.y
-            + Math.sin(elapsed * 0.35) * 0.12 * (1 - params.heroStanding)
+        group.current.rotation.x = lerp(params.heroRotX, ISO.pitch, final)
+            + dragRotation.current.x * (1 - final)
+        group.current.rotation.y = lerp(
+            params.heroRotY
+                + params.heroSpinY
+                + Math.sin(elapsed * 0.35) * 0.12 * (1 - params.heroStanding),
+            ISO.yaw,
+            final
+        ) + dragRotation.current.y * (1 - final)
 
-        // Duck floats above its column
-        duck.current.position.y = Math.sin(elapsed * 1.3) * 0.06
-        duck.current.rotation.z = Math.sin(elapsed * 0.8 + 1) * 0.02
+        let duckX = 0
+        let duckY = Math.sin(elapsed * 1.3) * 0.06 * (1 - final)
+        let duckZ = 0
+        let duckYaw = 0
+        let duckRoll = Math.sin(elapsed * 0.8 + 1) * 0.02 * (1 - final)
+        let duckScaleX = 1
+        let duckScaleY = 1
+        let duckScaleZ = 1
+
+        if(final > 0.98)
+        {
+            if(finalStart.current === null)
+            {
+                finalStart.current = elapsed
+                lastLanding.current = - 1
+            }
+
+            const legDuration = 2.65
+            const legClock = (elapsed - finalStart.current) / legDuration
+            const serial = Math.floor(legClock)
+            const phase = legClock - serial
+            const pathIndex = serial % FINAL_ORDER.length
+            const fromSlot = FINAL_ORDER[pathIndex]
+            const toSlot = FINAL_ORDER[(pathIndex + 1) % FINAL_ORDER.length]
+            const previousSlot = FINAL_ORDER[(pathIndex + FINAL_ORDER.length - 1) % FINAL_ORDER.length]
+            const from = finalDuckOffset(fromSlot, 1)
+            const to = finalDuckOffset(toSlot, 1)
+            const previous = finalDuckOffset(previousSlot, 1)
+            const targetYaw = directionBetween(from, to)
+            const previousYaw = directionBetween(previous, from)
+
+            if(phase < 0.28)
+            {
+                const turn = phase / 0.28
+                const turnEase = smooth(turn)
+                const turnHop = Math.sin(Math.PI * turn) * 0.24 / finalTransform.scale
+                const crouch = smooth(clamp((turn - 0.72) / 0.28, 0, 1))
+
+                duckX = from.x
+                duckY = turnHop
+                duckZ = from.z
+                duckYaw = lerpAngle(previousYaw, targetYaw, turnEase)
+                duckScaleX = 1 + crouch * 0.11
+                duckScaleY = 1 - crouch * 0.18
+                duckScaleZ = 1 + crouch * 0.11
+            }
+            else if(phase < 0.8)
+            {
+                const travel = (phase - 0.28) / 0.52
+                const gravityArc = 4 * travel * (1 - travel) * 1.08 / finalTransform.scale
+                const launchStretch = Math.exp(- travel * 8)
+
+                duckX = lerp(from.x, to.x, travel)
+                duckY = gravityArc
+                duckZ = lerp(from.z, to.z, travel)
+                duckYaw = targetYaw
+                duckScaleX = 1 - launchStretch * 0.08
+                duckScaleY = 1 + launchStretch * 0.17 + Math.sin(Math.PI * travel) * 0.04
+                duckScaleZ = 1 - launchStretch * 0.08
+            }
+            else
+            {
+                const landing = (phase - 0.8) / 0.2
+                const rebound = Math.exp(- landing * 5) * Math.cos(landing * Math.PI * 2)
+
+                duckX = to.x
+                duckY = Math.sin(Math.PI * landing) * Math.exp(- landing * 4) * 0.08
+                    / finalTransform.scale
+                duckZ = to.z
+                duckYaw = targetYaw
+                duckScaleX = 1 + rebound * 0.13
+                duckScaleY = 1 - rebound * 0.22
+                duckScaleZ = 1 + rebound * 0.13
+
+                if(serial !== lastLanding.current)
+                {
+                    lastLanding.current = serial
+                    if(serial % 2 === 1)
+                        useStage.getState().requestQuack()
+                }
+            }
+        }
+        else
+        {
+            finalStart.current = null
+            lastLanding.current = - 1
+        }
+
+        duck.current.position.set(duckX, duckY, duckZ)
+        duck.current.rotation.set(0, duckYaw, duckRoll)
+        duck.current.scale.set(duckScaleX, duckScaleY, duckScaleZ)
+
+        // DOM speech follows the real projected duck position in every act.
+        duck.current.updateWorldMatrix(true, false)
+        projectedDuck.current.copy(duckCenter)
+        duck.current.localToWorld(projectedDuck.current)
+        projectedDuck.current.project(state.camera)
+        duckQuackAnchor.x = (projectedDuck.current.x * 0.5 + 0.5) * state.size.width
+        duckQuackAnchor.y = (- projectedDuck.current.y * 0.5 + 0.5) * state.size.height
+        duckQuackAnchor.visible = params.heroOpacity > 0.002
 
         const uniforms = material.uniforms
         const sequence = clamp(params.paintTexture, 0, PAINT_IDS.length - 1)
@@ -251,20 +366,17 @@ export default function DuckColumnAssembly()
         const baked = params.bakeSweep > 0.001
         uniforms.uMapBase.value = baked ? textureLibrary.baked : textureLibrary.gradient
 
+        const batchColor = smooth(params.batchColor)
+        const batchActive = params.batchNeutral > 0.001
+
         updateAssetMaterial(material, {
-            whiteMix: params.whiteMix,
-            clayWipe: params.clayWipe,
+            whiteMix: batchActive ? params.batchNeutral : params.whiteMix,
+            clayWipe: batchActive ? batchColor : params.clayWipe,
             opacity: params.heroOpacity,
             reveal: params.reveal,
             uvPack: baked ? 0 : params.uvProgress,
             surfaceWipe: params.heroSurface,
         })
-
-        const neutralOpacity = params.neutralOpacity * params.heroOpacity
-        neutralMaterial.opacity = neutralOpacity
-        neutralMaterial.depthWrite = neutralOpacity > 0.98
-        neutralColumn.current.visible = neutralOpacity > 0.002
-        neutralDuck.current.visible = neutralOpacity > 0.002
 
         const wireOpacity = params.wireOpacity * params.heroOpacity
         updateAssetMaterial(wireMaterial, { opacity: wireOpacity })
@@ -297,13 +409,19 @@ export default function DuckColumnAssembly()
             } }
         >
             <mesh geometry={ columnGeometry } material={ material } renderOrder={ 0 } />
-            <mesh ref={ neutralColumn } geometry={ columnGeometry } material={ neutralMaterial } renderOrder={ 2 } />
-            <mesh ref={ wireColumn } geometry={ columnGeometry } material={ wireMaterial } />
+            <mesh ref={ wireColumn } geometry={ columnGeometry } material={ wireMaterial } renderOrder={ 4 } />
 
-            <group ref={ duck }>
+            <group
+                ref={ duck }
+                onClick={ (event) =>
+                {
+                    event.stopPropagation()
+                    if((event.delta ?? 0) < 6)
+                        useStage.getState().requestQuack()
+                } }
+            >
                 <mesh geometry={ duckGeometry } material={ material } renderOrder={ 0 } />
-                <mesh ref={ neutralDuck } geometry={ duckGeometry } material={ neutralMaterial } renderOrder={ 2 } />
-                <mesh ref={ wireDuck } geometry={ duckGeometry } material={ wireMaterial } />
+                <mesh ref={ wireDuck } geometry={ duckGeometry } material={ wireMaterial } renderOrder={ 4 } />
                 <primitive object={ duckSeamLine } scale={ 1.008 } />
             </group>
 

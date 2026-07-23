@@ -12,6 +12,12 @@ export default create(subscribeWithSelector((set) =>
         setStep: (step) => set({ step }),
 
         /**
+         * Duck speech
+         */
+        quackSeq: 0,
+        requestQuack: () => set((state) => ({ quackSeq: state.quackSeq + 1 })),
+
+        /**
          * Textures
          */
         swatches: [],

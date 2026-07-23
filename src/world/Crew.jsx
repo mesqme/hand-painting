@@ -1,4 +1,3 @@
-import * as THREE from 'three'
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useTexture } from '@react-three/drei'
@@ -9,6 +8,7 @@ import { ensureLibrary, textureLibrary } from './textureLibrary.js'
 import { clampFrameX } from '../ui/frameFit.js'
 import { params } from '../scroll/choreography.js'
 import { ISO, isoSlotOffset } from '../config.js'
+import { finalSlotTransform } from './finalLayout.js'
 
 /**
  * The crew — the three non-hero members of the four-piece cast (the hero owns
@@ -55,7 +55,7 @@ export default function Crew()
         aberration: './textures/duck_base_abberation.png',
     })
 
-    const { materials, neutralMaterials, wireMaterial } = useMemo(() =>
+    const { materials, wireMaterial } = useMemo(() =>
     {
         ensureLibrary(maps)
 
@@ -64,23 +64,8 @@ export default function Crew()
             const paint = textureLibrary.crewPaints[member.entry]?.texture ?? maps.gradient
             return createAssetMaterial({ mapBase: maps.gradient, mapPaintA: paint, mapPaintB: paint, whiteMix: 0 })
         })
-        const neutralMaterials = MEMBERS.map(() =>
-        {
-            return new THREE.MeshStandardMaterial({
-                color: 0xf1ede6,
-                roughness: 0.86,
-                metalness: 0,
-                flatShading: true,
-                transparent: true,
-                opacity: 0,
-                polygonOffset: true,
-                polygonOffsetFactor: 1,
-                polygonOffsetUnits: 1,
-            })
-        })
-
         const wireMaterial = createAssetMaterial({ wireframe: true, flatShade: true, opacity: 0 })
-        return { materials, neutralMaterials, wireMaterial }
+        return { materials, wireMaterial }
     }, [maps])
 
     useFrame((state, delta) =>
@@ -93,6 +78,7 @@ export default function Crew()
             return
 
         const frameX = clampFrameX(params.frameX)
+        const final = smooth(clamp01(params.finalVisible))
 
         const crewOpacity = clamp01(params.crewVisible * 1.5)
         const wireOpacity = params.crewWire * crewOpacity
@@ -108,14 +94,15 @@ export default function Crew()
              * Transform: every member holds its level-view slot
              */
             const iso = isoSlotOffset(member.slot)
+            const finalTransform = finalSlotTransform(member.slot, frameX, final)
             const pop = easeOutBack(clamp01(params.crewVisible * 1.3 - index * 0.12))
 
-            body.position.x = frameX + iso.x
-            body.position.y = iso.y
-            body.position.z = iso.z
+            body.position.x = final > 0 ? finalTransform.x : frameX + iso.x
+            body.position.y = final > 0 ? finalTransform.y : iso.y
+            body.position.z = final > 0 ? finalTransform.z : iso.z
             body.rotation.x = ISO.pitch
             body.rotation.y = ISO.yaw
-            body.scale.setScalar(Math.max(ISO.scale * pop, 0.0001))
+            body.scale.setScalar(Math.max(finalTransform.scale * pop, 0.0001))
 
             /**
              * Look: gradient → painted → (act 09) wireframe → applied. Solids
@@ -123,15 +110,16 @@ export default function Crew()
              */
             const surfaceWipe = clamp01(params.crewSurface * 1.4 - index * 0.12)
             materials[index].depthWrite = surfaceWipe > 0.001
+            const batchColor = smooth(params.batchColor)
+            const batchActive = params.batchNeutral > 0.001
+
             updateAssetMaterial(materials[index], {
                 opacity: crewOpacity,
                 reveal: params.crewPaint,
+                whiteMix: batchActive ? params.batchNeutral : 0,
+                clayWipe: batchActive ? batchColor : 0,
                 surfaceWipe,
             })
-
-            const neutralOpacity = crewOpacity * params.crewNeutral
-            neutralMaterials[index].opacity = neutralOpacity
-            neutralMaterials[index].depthWrite = neutralOpacity > 0.98
 
             /**
              * Object life — mild float by default, full personality once the
@@ -144,6 +132,9 @@ export default function Crew()
             if(animal)
             {
                 const amp = smooth(clamp01(params.batchGreen * 1.6 - index * 0.2))
+                const propScale = 1 - final
+                animal.visible = propScale > 0.002
+                animal.scale.setScalar(Math.max(propScale, 0.0001))
 
                 if(member.pair === 'barrel')
                 {
@@ -167,7 +158,9 @@ export default function Crew()
                     const inHop = clamp01((phase - 0.3) / 0.32)
                     const hop = Math.sin(Math.PI * inHop) * amp
                     animal.position.y = Math.sin(elapsed * 1.3 + 0.7) * 0.06 + hop * 0.42
-                    animal.scale.y = 1 + 0.14 * hop - 0.12 * amp * Math.exp(- Math.pow((phase - 0.66) * 22, 2))
+                    animal.scale.y = propScale * (
+                        1 + 0.14 * hop - 0.12 * amp * Math.exp(- Math.pow((phase - 0.66) * 22, 2))
+                    )
                     animal.rotation.z = hop * 0.12
                 }
             }
@@ -183,13 +176,11 @@ export default function Crew()
                     ref={ (instance) => { bodies.current[index] = instance } }
                 >
                     <mesh geometry={ crewPairs[index].columnGeometry } material={ materials[index] } />
-                    <mesh geometry={ crewPairs[index].columnGeometry } material={ neutralMaterials[index] } renderOrder={ 2 } />
-                    <mesh geometry={ crewPairs[index].columnGeometry } material={ wireMaterial } />
+                    <mesh geometry={ crewPairs[index].columnGeometry } material={ wireMaterial } renderOrder={ 4 } />
 
                     <group ref={ (instance) => { animals.current[index] = instance } }>
                         <mesh geometry={ crewPairs[index].objectGeometry } material={ materials[index] } />
-                        <mesh geometry={ crewPairs[index].objectGeometry } material={ neutralMaterials[index] } renderOrder={ 2 } />
-                        <mesh geometry={ crewPairs[index].objectGeometry } material={ wireMaterial } />
+                        <mesh geometry={ crewPairs[index].objectGeometry } material={ wireMaterial } renderOrder={ 4 } />
                     </group>
                 </group>
             ) }

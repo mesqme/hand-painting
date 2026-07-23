@@ -10,6 +10,7 @@ import TextureDropdown from './ui/TextureDropdown.jsx'
 import SceneWindow from './ui/SceneWindow.jsx'
 import ProcessNotes from './ui/ProcessNotes.jsx'
 import BatchDataOverlay from './ui/BatchDataOverlay.jsx'
+import DuckQuack from './ui/DuckQuack.jsx'
 import { buildChoreography } from './scroll/choreography.js'
 
 function App()
@@ -89,6 +90,7 @@ function App()
             <TextureDropdown />
             <ProcessNotes />
             <BatchDataOverlay />
+            <DuckQuack />
         </>
     )
 }

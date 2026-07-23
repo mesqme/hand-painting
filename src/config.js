@@ -15,12 +15,14 @@ export const COLORS = {
  * Scroll layout
  */
 export const LAYOUT = {
-    sections: 10,
+    sections: 11,
+    scrollUnits: 13,
     sectionVh: 170,
 }
 
-// One scroll unit === one section height; the master timeline is authored in these units.
-export const SCROLL_END = LAYOUT.sections
+// Choreography units are intentionally independent from card count: section 09
+// receives extra scroll room for its sequential batch-data explanation.
+export const SCROLL_END = LAYOUT.scrollUnits
 
 /**
  * World layout
@@ -34,7 +36,7 @@ export const WORLD = {
     sheetX: 2.35,
     bakeSheetX: - 2.25,
     paintSheetX: 0,
-    paintHeroX: 1.95,
+    paintHeroX: 2.28,
     paletteY: 0.08,
     paletteSize: 1.7,
     assemblyHeight: 2.6,
@@ -84,6 +86,9 @@ export const HERO_SLOT = 1
 // Act 07 — the texture atlas docks on the right while the crew stays in the
 // scene window; the four sheets fly from the models onto these quadrants
 export const ATLAS_X = 2.1
+export const ATLAS_Y = - 0.72
+export const ATLAS_DOCK_X = 2.08
+export const ATLAS_DOCK_Y = - 0.72
 
 /**
  * Rotates an iso-local point (x, y, z) into world space: Rx(pitch) · Ry(yaw)
@@ -129,14 +134,15 @@ export const STEPS = [
     },
     {
         id: 'model',
-        at: 0.28,
+        at: 0.2,
+        outAt: 0.66,
         kicker: '01 · Create the model',
         body: 'Create balanced geometry with clean topology and enough resolution for the asset. The model must be easy to unwrap and edit.',
         side: 'right',
     },
     {
         id: 'palette',
-        at: 1.12,
+        at: 0.76,
         kicker: '02 · Gradient palette',
         body: 'Place each part of the model on a shared gradient palette. Geometry and colors remain editable before anything is baked.',
         side: 'left',
@@ -151,6 +157,7 @@ export const STEPS = [
     {
         id: 'bake',
         at: 3.74,
+        outAt: 5.22,
         kicker: '04 · Bake',
         body: 'Turn the model into wireframe, create seams, inspect the UV islands, and bake the gradient colors into the final UV layout.',
         hint: 'Drag the model to inspect the seams. It snaps back when released.',
@@ -188,9 +195,17 @@ export const STEPS = [
     {
         id: 'batch',
         at: 9.28,
+        outAt: 11.7,
         kicker: '09 · Batched mesh',
         body: 'Reuse the batch color attribute as compact per-instance data. R identifies geometry and G identifies the texture variant.',
-        hint: 'B and A remain available for animation, interaction and object state.',
         side: 'left',
+    },
+    {
+        id: 'final',
+        at: 11.8,
+        kicker: 'edclub was here',
+        body: 'Hand-Painting for Three.js',
+        side: 'left',
+        terminal: true,
     },
 ]

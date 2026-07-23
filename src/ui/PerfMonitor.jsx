@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { addAfterEffect } from '@react-three/fiber'
 
-import useStage from '../stores/useStage.jsx'
 import { perfProbe } from '../world/perfProbe.js'
+import { params } from '../scroll/choreography.js'
 
 /**
  * Act 09 — lives inside the scene-window chrome. Triangles and fps are read
@@ -14,8 +14,7 @@ import { perfProbe } from '../world/perfProbe.js'
  */
 export default function PerfMonitor()
 {
-    const step = useStage((state) => state.step)
-
+    const root = useRef()
     const triangles = useRef()
     const fps = useRef()
 
@@ -26,6 +25,14 @@ export default function PerfMonitor()
 
         const unsubscribe = addAfterEffect(() =>
         {
+            const visibility = params.perfVisible
+            if(root.current)
+            {
+                root.current.style.opacity = visibility
+                root.current.style.visibility = visibility > 0.002 ? 'visible' : 'hidden'
+                root.current.style.transform = `translateY(${ - 12 * (1 - visibility) }px)`
+            }
+
             const renderer = perfProbe.renderer
             if(!renderer || !triangles.current)
                 return
@@ -46,7 +53,7 @@ export default function PerfMonitor()
     }, [])
 
     return (
-        <aside className={ `perf ${ step === 9 ? 'is-visible' : '' }` }>
+        <aside ref={ root } className="perf">
             <p className="perf-title">perf monitor</p>
 
             <div className="perf-main">

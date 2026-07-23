@@ -2,6 +2,14 @@ import { useEffect, useRef } from 'react'
 import gsap from 'gsap'
 
 import { params } from '../scroll/choreography.js'
+import { frameFit } from './frameFit.js'
+import {
+    ATLAS_X,
+    ATLAS_Y,
+    ATLAS_DOCK_X,
+    ATLAS_DOCK_Y,
+    WORLD,
+} from '../config.js'
 
 const BAKE_NOTES = [
     null,
@@ -21,12 +29,26 @@ const KTX_NOTES = [
     { eyebrow: 'KTX2', title: 'Compress the atlas', detail: 'Keep one square texture and prepare it for GPU delivery.' },
 ]
 
+const COMBINE_NOTE = {
+    eyebrow: 'ATLAS',
+    title: 'Combine the textures',
+    detail: 'Merge four square sheets into one square atlas.',
+}
+
 const BATCH_NOTES = [
     null,
-    { eyebrow: 'BATCHCOLOR', title: 'Start with empty channels', detail: 'Reuse the unused instance color attribute as a compact data buffer.' },
-    { eyebrow: 'RED CHANNEL', title: 'Store the geometry ID', detail: 'Match R0–R3 on the atlas to the corresponding object signs.' },
-    { eyebrow: 'GREEN CHANNEL', title: 'Store the texture variant', detail: 'Assign a G value to each instance while keeping one material.' },
+    { eyebrow: 'RED CHANNEL', title: 'Assign materials', detail: 'Store each atlas material ID in the red channel.' },
+    { eyebrow: 'GREEN CHANNEL', title: 'Assign geometries', detail: 'Store each geometry ID in the green channel.' },
+    { eyebrow: 'B + A CHANNELS', title: 'Reserve custom data', detail: 'Use the remaining channels for state, animation or interaction.' },
+    { eyebrow: 'BATCHED MESH', title: 'One draw call', detail: 'Display multiple geometries and materials with one draw call.' },
 ]
+
+const smooth = (value) =>
+{
+    const t = Math.min(Math.max(value, 0), 1)
+    return t * t * (3 - 2 * t)
+}
+const lerp = (a, b, t) => a + (b - a) * t
 
 export default function ProcessNotes()
 {
@@ -62,6 +84,11 @@ export default function ProcessNotes()
                 note = PAINT_NOTES[Math.round(params.paintPhase)]
                 mode = 'paint'
             }
+            else if(params.combinePhase > 0)
+            {
+                note = COMBINE_NOTE
+                mode = 'combine'
+            }
             else if(params.ktxPhase > 0)
             {
                 note = KTX_NOTES[Math.round(params.ktxPhase)]
@@ -95,6 +122,45 @@ export default function ProcessNotes()
                 lastKey.current = key
             }
 
+            const { pxPerUnit } = frameFit()
+            let worldX = params.paletteX
+            let worldY = params.paletteY
+            let halfHeight = WORLD.paletteSize * params.paletteScale * 0.54
+
+            if(mode === 'combine')
+            {
+                worldX = ATLAS_X
+                worldY = ATLAS_Y
+                halfHeight = 1.05
+            }
+            else if(mode === 'ktx')
+            {
+                const chip = smooth(params.atlasChip)
+                const dock = smooth(params.atlasDock)
+                worldX = lerp(ATLAS_X, ATLAS_DOCK_X, dock)
+                worldY = lerp(ATLAS_Y, ATLAS_DOCK_Y, dock)
+                halfHeight = lerp(1.05, 0.56, chip)
+            }
+            else if(mode === 'batch')
+            {
+                const phase = Math.round(params.batchPhase)
+                worldX = params.frameX
+                worldY = - 1.22
+                halfHeight = 0
+
+                if(phase === 1)
+                {
+                    const chip = smooth(params.atlasChip)
+                    const inspect = smooth(params.atlasInspect)
+                    worldX = ATLAS_DOCK_X
+                    worldY = ATLAS_DOCK_Y
+                    halfHeight = lerp(1, 0.55, chip) * lerp(1, 1.65, inspect)
+                }
+            }
+
+            element.style.left = `${ window.innerWidth / 2 + worldX * pxPerUnit }px`
+            element.style.top = `${ window.innerHeight / 2 - worldY * pxPerUnit + halfHeight * pxPerUnit + 12 }px`
+            element.style.transform = 'translateX(-50%)'
             element.style.opacity = 1
             element.style.visibility = 'visible'
         }

@@ -6,7 +6,7 @@ import { useTexture } from '@react-three/drei'
 import { ensureLibrary, textureLibrary } from './textureLibrary.js'
 import { clampFrameX } from '../ui/frameFit.js'
 import { params } from '../scroll/choreography.js'
-import { ATLAS_X, COLORS, isoSlotOffset } from '../config.js'
+import { ATLAS_X, ATLAS_Y, ATLAS_DOCK_X, ATLAS_DOCK_Y, COLORS, isoSlotOffset } from '../config.js'
 
 /**
  * Four borderless square textures first scale up directly over their matching
@@ -17,7 +17,6 @@ import { ATLAS_X, COLORS, isoSlotOffset } from '../config.js'
  *
  * The 2x2 atlas remains in the live scene for KTX2 and batchColor sections.
  */
-const ATLAS_Y = 0.02
 const CARD_START_SCALE = 0.56
 
 const SHEET_SOURCES = [
@@ -105,7 +104,8 @@ export default function AtlasCombine()
         const sheetIn = smooth(params.sheetsIn)
         const fly = smooth(params.atlasFly)
         const chip = smooth(params.atlasChip)
-        const batch = smooth(params.batchData)
+        const inspect = smooth(params.atlasInspect)
+        const dock = smooth(params.atlasDock)
         const redIn = smooth(params.batchAtlasR)
 
         group.current.visible = sheetIn > 0.002
@@ -115,13 +115,16 @@ export default function AtlasCombine()
         const fit = THREE.MathUtils.clamp(state.viewport.aspect / 1.72, 0.6, 1)
         const halfVisible = (state.viewport.width / 2) / fit
         const atlasX = Math.min(ATLAS_X, halfVisible - 1.08)
-
-        atlas.current.position.x = atlasX
-        atlas.current.position.y = ATLAS_Y
-        atlas.current.rotation.z = 0
-        atlas.current.scale.setScalar(1 - chip * 0.16)
-
         const frameX = clampFrameX(params.frameX)
+        group.current.scale.setScalar(fit)
+
+        // The atlas is a 2D reference pinned to the preview corner. KTX2 and
+        // batch inspection may change its scale, never its position.
+        atlas.current.position.x = lerp(atlasX, ATLAS_DOCK_X, dock)
+        atlas.current.position.y = lerp(ATLAS_Y, ATLAS_DOCK_Y, dock)
+        atlas.current.rotation.z = 0
+        atlas.current.scale.setScalar(lerp(1, 0.55, chip) * lerp(1, 1.65, inspect))
+
         SHEET_SOURCES.forEach((source, index) =>
         {
             const sheet = sheets.current[index]
@@ -153,12 +156,12 @@ export default function AtlasCombine()
             }
         })
 
-        // KTX2 is a single compression beat. During batchColor the badge
-        // moves into the atlas corner so the four R labels remain readable.
+        // Compression completes the complete 2D dock before section 09:
+        // compact atlas in the lower-left, KTX2 badge at its lower-right.
         const stampPop = smooth(chip)
-        stamp.current.position.x = lerp(0, 0.72, batch)
-        stamp.current.position.y = lerp(0, - 0.76, batch)
-        stamp.current.scale.setScalar(Math.max(stampPop * lerp(0.62, 0.27, batch), 0.0001))
+        stamp.current.position.x = lerp(0, 0.72, stampPop)
+        stamp.current.position.y = lerp(0, - 0.76, stampPop)
+        stamp.current.scale.setScalar(Math.max(stampPop * 0.28, 0.0001))
         stamp.current.visible = stampPop > 0.01
         stampMaterial.opacity = sheetIn
         stamp.current.renderOrder = 48

@@ -23,29 +23,11 @@ export default function Sections()
         const context = gsap.context(() =>
         {
             const cards = gsap.utils.toArray('.card')
-            const quack = page.current.querySelector('.quack-bubble')
             const cue = page.current.querySelector('.scroll-cue')
             let activeStep = 0
-            let quackShown = false
-            let quackDismissed = false
 
             gsap.set(cards, { autoAlpha: 0, y: 34 })
             gsap.set(cards[0], { autoAlpha: 1, y: 0 })
-            gsap.set(quack, { autoAlpha: 0, scale: 0.82, rotation: - 3 })
-
-            const quackDelay = gsap.delayedCall(5, () =>
-            {
-                if(quackDismissed)
-                    return
-
-                quackShown = true
-                gsap.to(quack, {
-                    autoAlpha: 1,
-                    scale: 1,
-                    duration: 0.42,
-                    ease: 'back.out(1.8)',
-                })
-            })
 
             const timeline = gsap.timeline({
                 scrollTrigger: {
@@ -56,14 +38,6 @@ export default function Sections()
                     onUpdate: (self) =>
                     {
                         const time = self.progress * SCROLL_END
-                        if(time > 0.06 && !quackDismissed)
-                        {
-                            quackDismissed = true
-                            quackDelay.kill()
-                            if(quackShown)
-                                gsap.to(quack, { autoAlpha: 0, y: - 14, duration: 0.16 })
-                        }
-
                         let nextStep = 0
                         for(let index = 1; index < STEPS.length; index++)
                         {
@@ -97,11 +71,14 @@ export default function Sections()
                     )
                 }
 
-                timeline.to(
-                    card,
-                    { autoAlpha: 0, y: - 28, duration: 0.12, ease: 'power1.in' },
-                    Math.max(nextAt - 0.16, step.at + 0.2)
-                )
+                if(index < STEPS.length - 1)
+                {
+                    timeline.to(
+                        card,
+                        { autoAlpha: 0, y: - 28, duration: 0.12, ease: 'power1.in' },
+                        Math.max(step.outAt ?? nextAt - 0.16, step.at + 0.2)
+                    )
+                }
             })
 
             // Preserve one complete scroll unit for the final act.
@@ -131,16 +108,12 @@ export default function Sections()
 
                                 { step.hint && <p className="hint">{ step.hint }</p> }
 
-                                { step.terminal &&
-                                    <pre className="terminal">{ step.terminal.join('\n') }</pre>
-                                }
                             </>
                         }
                     </div>
 
                     { step.hero === true &&
                         <>
-                            <div className="quack-bubble">Quack!</div>
                             <div className="scroll-cue">scroll<span>↓</span></div>
                         </>
                     }
