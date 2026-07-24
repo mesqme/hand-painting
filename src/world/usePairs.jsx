@@ -12,10 +12,10 @@ import { WORLD } from '../config.js'
  * are baked into the geometries and the pair is normalised to one shared
  * local space: centered on origin, assemblyHeight tall, tilt preserved.
  *
- * Only the hero pair carries the real seam-cut unwrap (TEXCOORD_1), so the
- * island model (islands, seams, aUnwrapUv/aPackOrder) is built for it alone —
- * exactly what acts 02/04 need. Crew pairs sample the gradient/painted maps
- * through uv0 like the hero does outside those acts.
+ * The hero pair carries the real seam-cut unwrap (TEXCOORD_1), so its full
+ * island model (islands, seams, aUnwrapUv/aPackOrder) is built for acts 02/04.
+ * Crew pairs also expose their baked UV as aUnwrapUv when TEXCOORD_1 exists.
+ * Older exports without it fall back to TEXCOORD_0 until they are re-exported.
  *
  * The build is cached per gltf at module level so the weld/cluster work runs
  * once and every consumer shares one geometry set (nobody mutates the result).
@@ -49,6 +49,23 @@ function normalisePair(geometries)
         geometry.applyMatrix4(normalise)
 }
 
+function attachPaintUv(geometry)
+{
+    const bakedUv = geometry.attributes.uv1
+    const fallbackUv = geometry.attributes.uv
+    const paintUv = bakedUv ?? fallbackUv
+
+    if(!paintUv)
+        throw new Error('A crew geometry is missing both TEXCOORD_0 and TEXCOORD_1.')
+
+    geometry.setAttribute('aUnwrapUv', paintUv.clone())
+    geometry.setAttribute(
+        'aPackOrder',
+        new THREE.BufferAttribute(new Float32Array(geometry.attributes.position.count), 1)
+    )
+    geometry.userData.hasBakedUv = Boolean(bakedUv)
+}
+
 export default function usePairs()
 {
     const gltf = useGLTF('./models/pairs.glb')
@@ -77,13 +94,16 @@ export default function usePairs()
         const columnSeams = islandModel.seamsByGeometry.get(columnGeometry)
 
         /**
-         * Crew pairs — geometry only (uv0 sampling), kept indexed
+         * Crew pairs stay indexed. Painted maps prefer the authored second UV;
+         * the explicit uv0 fallback keeps unfinished placeholder assets usable.
          */
         const crewPairs = CREW_PAIRS.map((name) =>
         {
             const objectGeometry = bakeGeometry(gltf, name)
             const pairColumnGeometry = bakeGeometry(gltf, `column_${ name }`)
             normalisePair([ objectGeometry, pairColumnGeometry ])
+            attachPaintUv(objectGeometry)
+            attachPaintUv(pairColumnGeometry)
             return { name, objectGeometry, columnGeometry: pairColumnGeometry }
         })
 

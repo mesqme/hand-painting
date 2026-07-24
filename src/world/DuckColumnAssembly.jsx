@@ -126,11 +126,15 @@ export default function DuckColumnAssembly()
         pastel: './textures/duck_pastel.png',
         red: './textures/duck_red.png',
         aberration: './textures/duck_base_abberation.png',
+        barrel: './textures/barrel.png',
+        meat: './textures/meat.png',
     })
-    const duckCenter = useMemo(() =>
+    const duckQuackPoint = useMemo(() =>
     {
         duckGeometry.computeBoundingBox()
-        return duckGeometry.boundingBox.getCenter(new THREE.Vector3())
+        const point = duckGeometry.boundingBox.getCenter(new THREE.Vector3())
+        point.y = duckGeometry.boundingBox.max.y + 0.06
+        return point
     }, [duckGeometry])
 
     /**
@@ -443,12 +447,16 @@ export default function DuckColumnAssembly()
 
         // DOM speech follows the real projected duck position in every act.
         duck.current.updateWorldMatrix(true, false)
-        projectedDuck.current.copy(duckCenter)
+        projectedDuck.current.copy(duckQuackPoint)
         duck.current.localToWorld(projectedDuck.current)
         projectedDuck.current.project(state.camera)
         duckQuackAnchor.x = (projectedDuck.current.x * 0.5 + 0.5) * state.size.width
         duckQuackAnchor.y = (- projectedDuck.current.y * 0.5 + 0.5) * state.size.height
         duckQuackAnchor.visible = params.heroOpacity > 0.002
+        if(duckQuackAnchor.element)
+        {
+            duckQuackAnchor.element.style.transform = `translate3d(${ duckQuackAnchor.x + 18 }px, ${ duckQuackAnchor.y - 76 }px, 0)`
+        }
 
         const uniforms = material.uniforms
         const sequence = clamp(params.paintTexture, 0, PAINT_IDS.length - 1)

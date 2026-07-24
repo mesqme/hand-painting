@@ -12,9 +12,9 @@ import useStage from '../stores/useStage.jsx'
  *   duck_red /
  *   duck_base_abberation — the intro look and final live-update choice
  *
- * The gradient palette stays for act 02 (and as a uv0-friendly stand-in for
- * the crew, whose meshes don't share the duck's uv1 unwrap). Dropping any
- * PNG on the page still appends a live swatch to the dropdown.
+ * Barrel and meat use their authored painted maps. The gradient palette
+ * remains the temporary book texture until its painted map arrives. Dropping
+ * any PNG on the page still appends a live swatch to the dropdown.
  */
 export const textureLibrary = {
     gradient: null,
@@ -46,7 +46,7 @@ export function prepareMapTexture(texture)
 }
 
 /**
- * @param {object} maps — { gradient, baked, base, pastel, red, aberration }
+ * @param {object} maps — hero maps plus barrel and meat crew maps
  */
 export function ensureLibrary(maps)
 {
@@ -56,6 +56,8 @@ export function ensureLibrary(maps)
     const gradient = prepareMapTexture(maps.gradient)
     const baked = prepareMapTexture(maps.baked)
     const base = prepareMapTexture(maps.base)
+    const barrel = prepareMapTexture(maps.barrel)
+    const meat = prepareMapTexture(maps.meat)
 
     textureLibrary.gradient = gradient
     textureLibrary.baked = baked
@@ -74,12 +76,12 @@ export function ensureLibrary(maps)
 
     textureLibrary.aberration = textureLibrary.entries.find((entry) => entry.id === 'aberration')?.texture ?? base
 
-    // Temporary crew / atlas stand-ins. Keep one slot per future hand-painted
-    // asset, but use the unchanged production gradient until those maps arrive.
+    // Crew / atlas maps follow MEMBERS order: barrel, book, meat. Book keeps
+    // the gradient placeholder until its painted texture is delivered.
     textureLibrary.crewPaints = [
-        { id: 'crew-barrel', texture: gradient },
+        { id: 'crew-barrel', texture: barrel },
         { id: 'crew-book', texture: gradient },
-        { id: 'crew-meat', texture: gradient },
+        { id: 'crew-meat', texture: meat },
     ]
 
     pushSwatches()

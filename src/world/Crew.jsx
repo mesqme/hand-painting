@@ -16,12 +16,12 @@ import { finalSlotTransform } from './finalLayout.js'
  * is a REAL object+column pair from pairs.glb (barrel, book, meat — the hero
  * keeps the duck pair). One component serves four acts:
  *   03  evenly spaced in the level-view scene
- *   06  same gradient scene — the artist changes only the hero texture
+ *   06  the painted cast surrounds the hero in the artist's test scene
  *   07  everyone HOLDS their slot while the texture sheets fly off the models
  *   09  neutral wireframe objects receive sequential red-channel geometry IDs
  */
 // pair indexes into usePairs().crewPairs — [ barrel, book, meat ]
-// entry indexes into textureLibrary.crewPaints (uv0-friendly stand-ins)
+// entry indexes into textureLibrary.crewPaints (barrel, book placeholder, meat)
 const MEMBERS = [
     { slot: 0, entry: 0, pair: 'barrel', batchOrder: 0 },
     { slot: 2, entry: 1, pair: 'book', batchOrder: 2 },
@@ -53,6 +53,8 @@ export default function Crew()
         pastel: './textures/duck_pastel.png',
         red: './textures/duck_red.png',
         aberration: './textures/duck_base_abberation.png',
+        barrel: './textures/barrel.png',
+        meat: './textures/meat.png',
     })
 
     const { materials, wireMaterial } = useMemo(() =>
@@ -118,6 +120,9 @@ export default function Crew()
             updateAssetMaterial(materials[index], {
                 opacity: crewOpacity,
                 reveal: params.crewPaint,
+                // Painted crew atlases are authored on TEXCOORD_1. The book
+                // remains a gradient placeholder and therefore keeps uv0.
+                uvPack: member.pair === 'book' ? 1 : 1 - clamp01(params.crewPaint),
                 whiteMix: batchActive ? params.batchNeutral : 0,
                 clayWipe: batchActive ? batchReveal : 0,
                 surfaceWipe,

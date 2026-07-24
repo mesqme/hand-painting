@@ -266,7 +266,7 @@ export function buildChoreography()
      * the live-scene slot without crossing the other objects.
      */
     tl.to(params, { paletteOpacity: 0, duration: 0.18 }, 6.68)
-    tl.set(params, { paintPhase: 0, noteOpacity: 0, frameX: WORLD.artistFrameX, crewPaint: 0 }, 6.78)
+    tl.set(params, { paintPhase: 0, noteOpacity: 0, frameX: WORLD.artistFrameX, crewPaint: 1 }, 6.78)
     tl.to(params, {
         ...heroIso(WORLD.artistFrameX),
         heroSpinY: 0,

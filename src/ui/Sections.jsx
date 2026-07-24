@@ -101,6 +101,9 @@ export default function Sections()
                                     ) }
                                 </h1>
                                 <p className="hero-tagline">{ step.body }</p>
+                                <p className="hero-credit">
+                                    by <span>edclub</span>
+                                </p>
                             </header>
                             : <>
                                 <h2 className="kicker">

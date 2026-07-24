@@ -130,6 +130,7 @@ export const STEPS = [
         outAt: 0.08,
         title: 'Hand-Painting\nfor Three.js',
         body: 'A production texturing pipeline',
+        credit: 'by edclub',
         side: 'right',
         hero: true,
     },

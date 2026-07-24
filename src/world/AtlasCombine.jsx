@@ -55,6 +55,8 @@ export default function AtlasCombine()
         pastel: './textures/duck_pastel.png',
         red: './textures/duck_red.png',
         aberration: './textures/duck_base_abberation.png',
+        barrel: './textures/barrel.png',
+        meat: './textures/meat.png',
     })
 
     const { sheetMaterials, stampMaterial, redMaterials } = useMemo(() =>

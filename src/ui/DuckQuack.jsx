@@ -6,12 +6,14 @@ import { duckQuackAnchor } from '../world/duckQuackAnchor.js'
 
 export default function DuckQuack()
 {
+    const anchor = useRef()
     const bubble = useRef()
 
     useEffect(() =>
     {
         const element = bubble.current
-        gsap.set(element, { autoAlpha: 0, scale: 0.84, y: 8 })
+        duckQuackAnchor.element = anchor.current
+        gsap.set(element, { autoAlpha: 0, scale: 0.92, y: 8 })
 
         const play = () =>
         {
@@ -20,13 +22,13 @@ export default function DuckQuack()
 
             gsap.killTweensOf(element)
             gsap.timeline()
-                .set(element, { y: 8 })
+                .set(element, { autoAlpha: 0, scale: 0.92, y: 8 })
                 .to(element, {
                     autoAlpha: 1,
                     scale: 1,
                     y: 0,
-                    duration: 0.3,
-                    ease: 'back.out(1.8)',
+                    duration: 0.34,
+                    ease: 'power2.out',
                 })
                 .to(element, { autoAlpha: 1, duration: 0.68 })
                 .to(element, {
@@ -40,21 +42,20 @@ export default function DuckQuack()
 
         const initialQuack = gsap.delayedCall(3, play)
         const unsubscribe = useStage.subscribe((state) => state.quackSeq, play)
-        const updatePosition = () =>
-        {
-            element.style.left = `${ duckQuackAnchor.x + 18 }px`
-            element.style.top = `${ duckQuackAnchor.y - 54 }px`
-        }
 
-        gsap.ticker.add(updatePosition)
         return () =>
         {
             initialQuack.kill()
             unsubscribe()
-            gsap.ticker.remove(updatePosition)
             gsap.killTweensOf(element)
+            if(duckQuackAnchor.element === anchor.current)
+                duckQuackAnchor.element = null
         }
     }, [])
 
-    return <div ref={ bubble } className="quack-bubble">Quack!</div>
+    return (
+        <div ref={ anchor } className="quack-anchor">
+            <div ref={ bubble } className="quack-bubble">Quack!</div>
+        </div>
+    )
 }
